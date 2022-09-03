@@ -7,16 +7,20 @@ use wgpu::{
     Surface, SurfaceConfiguration, SurfaceError, TextureUsages, TextureViewDescriptor,
 };
 use wgpu::LoadOp::Clear;
-use winit::dpi::PhysicalSize;
-use winit::event::WindowEvent;
+use winit::dpi::{PhysicalPosition, PhysicalSize};
+use winit::event::{ElementState, ModifiersState, MouseButton, WindowEvent};
 use winit::window::Window;
 
 pub struct State {
-    surface: Surface,
-    device: Device,
-    queue: Queue,
+    clear_color: Color,
     config: SurfaceConfiguration,
+    cursor_position: Option<PhysicalPosition<f64>>,
+    device: Device,
+    kb_state: ModifiersState,
+    mouse_input: Option<MouseButton>,
+    queue: Queue,
     pub size: PhysicalSize<u32>,
+    surface: Surface,
 }
 
 impl State {
@@ -71,11 +75,43 @@ impl State {
 
         surface.configure(&device, &config);
 
-        Self { surface, device, queue, config, size }
+        let clear_color = Color {
+            r: 0.1,
+            g: 0.2,
+            b: 0.3,
+            a: 1.0,
+        };
+
+        Self {
+            clear_color,
+            config,
+            cursor_position: None,
+            device,
+            kb_state: ModifiersState::default(),
+            mouse_input: None,
+            queue,
+            size,
+            surface,
+        }
     }
 
-    pub fn input(&mut self, _event: &WindowEvent) -> bool {
-        false
+    pub fn input(&mut self, event: &WindowEvent) -> bool {
+        match event {
+            WindowEvent::CursorMoved { position, .. } =>
+                self.cursor_position = Some(*position),
+            WindowEvent::ModifiersChanged(modified_state) =>
+                self.kb_state = *modified_state,
+            WindowEvent::MouseInput { state: mouse_state, button, .. } =>
+                if *mouse_state == ElementState::Pressed {
+                    self.mouse_input = Some(*button);
+                } else {
+                    self.mouse_input = None
+                },
+            // WindowEvent::MouseWheel { delta, phase, .. } => {}
+            _ => return false
+        }
+
+        true
     }
 
     pub fn render(&mut self) -> Result<(), SurfaceError> {
@@ -92,12 +128,7 @@ impl State {
                     view: &view,
                     resolve_target: None,
                     ops: Operations {
-                        load: Clear(Color {
-                            r: 0.1,
-                            g: 0.2,
-                            b: 0.3,
-                            a: 1.0,
-                        }),
+                        load: Clear(self.clear_color),
                         store: true,
                     },
                 })],
@@ -122,5 +153,16 @@ impl State {
         }
     }
 
-    pub fn update(&mut self) {}
+    pub fn update(&mut self) {
+        if let Some(PhysicalPosition { x, y }) = self.cursor_position {
+            self.clear_color = Color {
+                r: x / self.size.width as f64,
+                g: (x + y) / (self.size.width + self.size.height) as f64,
+                b: y / self.size.height as f64,
+                a: 1.0,
+            }
+        }
+
+        self.cursor_position = None;
+    }
 }
