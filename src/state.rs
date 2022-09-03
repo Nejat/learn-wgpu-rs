@@ -10,7 +10,7 @@ use wgpu::{
 };
 use wgpu::LoadOp::Clear;
 use winit::dpi::PhysicalSize;
-use winit::event::WindowEvent;
+use winit::event::{ElementState, KeyboardInput, VirtualKeyCode, WindowEvent};
 use winit::window::Window;
 
 pub struct State {
@@ -19,7 +19,9 @@ pub struct State {
     queue: Queue,
     config: SurfaceConfiguration,
     render_pipeline: RenderPipeline,
+    render_pipeline_alt: RenderPipeline,
     pub size: PhysicalSize<u32>,
+    use_alt: bool,
 }
 
 impl State {
@@ -121,11 +123,74 @@ impl State {
             multiview: None, // 5.
         });
 
-        Self { surface, device, queue, config, render_pipeline, size }
+        let shader = device.create_shader_module(include_wgsl!("shader_challenge.wgsl"));
+
+        let render_pipeline_alt = device.create_render_pipeline(&RenderPipelineDescriptor {
+            label: Some("Render Pipeline Challenge"),
+            layout: Some(&render_pipeline_layout),
+            vertex: VertexState {
+                module: &shader,
+                entry_point: "vs_main", // 1.
+                buffers: &[], // 2.
+            },
+            fragment: Some(FragmentState { // 3.
+                module: &shader,
+                entry_point: "fs_main",
+                targets: &[Some(ColorTargetState { // 4.
+                    format: config.format,
+                    blend: Some(BlendState::REPLACE),
+                    write_mask: ColorWrites::ALL,
+                })],
+            }),
+            primitive: PrimitiveState {
+                topology: PrimitiveTopology::TriangleList, // 1.
+                strip_index_format: None,
+                front_face: FrontFace::Ccw, // 2.
+                cull_mode: Some(Face::Back),
+                // Setting this to anything other than Fill requires Features::NON_FILL_POLYGON_MODE
+                polygon_mode: PolygonMode::Fill,
+                // Requires Features::DEPTH_CLIP_CONTROL
+                unclipped_depth: false,
+                // Requires Features::CONSERVATIVE_RASTERIZATION
+                conservative: false,
+            },
+            depth_stencil: None, // 1.
+            multisample: MultisampleState {
+                count: 1, // 2.
+                mask: !0, // 3.
+                alpha_to_coverage_enabled: false, // 4.
+            },
+            multiview: None, // 5.
+        });
+
+        Self {
+            surface,
+            device,
+            queue,
+            config,
+            render_pipeline,
+            render_pipeline_alt,
+            size,
+            use_alt: false,
+        }
     }
 
-    pub fn input(&mut self, _event: &WindowEvent) -> bool {
-        false
+    pub fn input(&mut self, event: &WindowEvent) -> bool {
+        if let WindowEvent::KeyboardInput {
+            input:
+            KeyboardInput {
+                state: ElementState::Pressed,
+                virtual_keycode: Some(VirtualKeyCode::Space),
+                ..
+            },
+            ..
+        } = event {
+            self.use_alt = !self.use_alt;
+
+            true
+        } else {
+            false
+        }
     }
 
     pub fn render(&mut self) -> Result<(), SurfaceError> {
@@ -155,7 +220,7 @@ impl State {
                 depth_stencil_attachment: None,
             });
 
-            render_pass.set_pipeline(&self.render_pipeline); // 2.
+            render_pass.set_pipeline(self.get_render_pipeline()); // 2.
             render_pass.draw(0..3, 0..1); // 3.
         }
 
@@ -177,4 +242,12 @@ impl State {
     }
 
     pub fn update(&mut self) {}
+
+    fn get_render_pipeline(&self) -> &RenderPipeline {
+        if self.use_alt {
+            &self.render_pipeline_alt
+        } else {
+            &self.render_pipeline
+        }
+    }
 }
