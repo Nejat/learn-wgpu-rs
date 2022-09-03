@@ -1,10 +1,12 @@
 use std::iter::once;
 
 use wgpu::{
-    Backends, Color, CommandEncoderDescriptor, Device, DeviceDescriptor,
-    Features, Instance, Limits, Operations, PowerPreference, PresentMode,
-    Queue, RenderPassColorAttachment, RenderPassDescriptor, RequestAdapterOptions,
-    Surface, SurfaceConfiguration, SurfaceError, TextureUsages, TextureViewDescriptor,
+    Backends, BlendState, Color, ColorTargetState, ColorWrites, CommandEncoderDescriptor, Device,
+    DeviceDescriptor, Face, Features, FragmentState, FrontFace, Instance, Limits, MultisampleState,
+    Operations, PipelineLayoutDescriptor, PolygonMode, PowerPreference, PresentMode, PrimitiveState,
+    PrimitiveTopology, Queue, RenderPassColorAttachment, RenderPassDescriptor, RenderPipeline,
+    RenderPipelineDescriptor, RequestAdapterOptions, Surface, SurfaceConfiguration, SurfaceError,
+    TextureUsages, TextureViewDescriptor, VertexState
 };
 use wgpu::LoadOp::Clear;
 use winit::dpi::PhysicalSize;
@@ -16,6 +18,7 @@ pub struct State {
     device: Device,
     queue: Queue,
     config: SurfaceConfiguration,
+    render_pipeline: RenderPipeline,
     pub size: PhysicalSize<u32>,
 }
 
@@ -71,7 +74,54 @@ impl State {
 
         surface.configure(&device, &config);
 
-        Self { surface, device, queue, config, size }
+        let shader = device.create_shader_module(include_wgsl!("shader.wgsl"));
+
+        let render_pipeline_layout =
+            device.create_pipeline_layout(&PipelineLayoutDescriptor {
+                label: Some("Render Pipeline Layout"),
+                bind_group_layouts: &[],
+                push_constant_ranges: &[],
+            });
+
+        let render_pipeline = device.create_render_pipeline(&RenderPipelineDescriptor {
+            label: Some("Render Pipeline"),
+            layout: Some(&render_pipeline_layout),
+            vertex: VertexState {
+                module: &shader,
+                entry_point: "vs_main", // 1.
+                buffers: &[], // 2.
+            },
+            fragment: Some(FragmentState { // 3.
+                module: &shader,
+                entry_point: "fs_main",
+                targets: &[Some(ColorTargetState { // 4.
+                    format: config.format,
+                    blend: Some(BlendState::REPLACE),
+                    write_mask: ColorWrites::ALL,
+                })],
+            }),
+            primitive: PrimitiveState {
+                topology: PrimitiveTopology::TriangleList, // 1.
+                strip_index_format: None,
+                front_face: FrontFace::Ccw, // 2.
+                cull_mode: Some(Face::Back),
+                // Setting this to anything other than Fill requires Features::NON_FILL_POLYGON_MODE
+                polygon_mode: PolygonMode::Fill,
+                // Requires Features::DEPTH_CLIP_CONTROL
+                unclipped_depth: false,
+                // Requires Features::CONSERVATIVE_RASTERIZATION
+                conservative: false,
+            },
+            depth_stencil: None, // 1.
+            multisample: MultisampleState {
+                count: 1, // 2.
+                mask: !0, // 3.
+                alpha_to_coverage_enabled: false, // 4.
+            },
+            multiview: None, // 5.
+        });
+
+        Self { surface, device, queue, config, render_pipeline, size }
     }
 
     pub fn input(&mut self, _event: &WindowEvent) -> bool {
@@ -81,12 +131,13 @@ impl State {
     pub fn render(&mut self) -> Result<(), SurfaceError> {
         let output = self.surface.get_current_texture()?;
         let view = output.texture.create_view(&TextureViewDescriptor::default());
+
         let mut encoder = self.device.create_command_encoder(&CommandEncoderDescriptor {
             label: Some("Render Encoder"),
         });
 
         {
-            let _render_pass = encoder.begin_render_pass(&RenderPassDescriptor {
+            let mut render_pass = encoder.begin_render_pass(&RenderPassDescriptor {
                 label: Some("Render Pass"),
                 color_attachments: &[Some(RenderPassColorAttachment {
                     view: &view,
@@ -103,6 +154,9 @@ impl State {
                 })],
                 depth_stencil_attachment: None,
             });
+
+            render_pass.set_pipeline(&self.render_pipeline); // 2.
+            render_pass.draw(0..3, 0..1); // 3.
         }
 
         // submit will accept anything that implements IntoIter

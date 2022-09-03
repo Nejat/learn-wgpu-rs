@@ -1,5 +1,7 @@
 #[macro_use]
 extern crate tracing;
+#[macro_use]
+extern crate wgpu;
 
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
