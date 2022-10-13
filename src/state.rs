@@ -1,13 +1,6 @@
 use std::iter::once;
 
-use wgpu::{
-    Backends, BlendState, Color, ColorTargetState, ColorWrites, CommandEncoderDescriptor, Device,
-    DeviceDescriptor, Face, Features, FragmentState, FrontFace, Instance, Limits, MultisampleState,
-    Operations, PipelineLayoutDescriptor, PolygonMode, PowerPreference, PresentMode, PrimitiveState,
-    PrimitiveTopology, Queue, RenderPassColorAttachment, RenderPassDescriptor, RenderPipeline,
-    RenderPipelineDescriptor, RequestAdapterOptions, Surface, SurfaceConfiguration, SurfaceError,
-    TextureUsages, TextureViewDescriptor, VertexState
-};
+use wgpu::{Backends, BlendState, Color, ColorTargetState, ColorWrites, CommandEncoderDescriptor, Device, DeviceDescriptor, Face, Features, FragmentState, FrontFace, Instance, Limits, MultisampleState, Operations, PipelineLayout, PipelineLayoutDescriptor, PolygonMode, PowerPreference, PresentMode, PrimitiveState, PrimitiveTopology, Queue, RenderPassColorAttachment, RenderPassDescriptor, RenderPipeline, RenderPipelineDescriptor, RequestAdapterOptions, ShaderModule, Surface, SurfaceConfiguration, SurfaceError, TextureUsages, TextureViewDescriptor, VertexState};
 use wgpu::LoadOp::Clear;
 use winit::dpi::PhysicalSize;
 use winit::event::{ElementState, KeyboardInput, VirtualKeyCode, WindowEvent};
@@ -85,83 +78,23 @@ impl State {
                 push_constant_ranges: &[],
             });
 
-        let render_pipeline = device.create_render_pipeline(&RenderPipelineDescriptor {
-            label: Some("Render Pipeline"),
-            layout: Some(&render_pipeline_layout),
-            vertex: VertexState {
-                module: &shader,
-                entry_point: "vs_main", // 1.
-                buffers: &[], // 2.
-            },
-            fragment: Some(FragmentState { // 3.
-                module: &shader,
-                entry_point: "fs_main",
-                targets: &[Some(ColorTargetState { // 4.
-                    format: config.format,
-                    blend: Some(BlendState::REPLACE),
-                    write_mask: ColorWrites::ALL,
-                })],
-            }),
-            primitive: PrimitiveState {
-                topology: PrimitiveTopology::TriangleList, // 1.
-                strip_index_format: None,
-                front_face: FrontFace::Ccw, // 2.
-                cull_mode: Some(Face::Back),
-                // Setting this to anything other than Fill requires Features::NON_FILL_POLYGON_MODE
-                polygon_mode: PolygonMode::Fill,
-                // Requires Features::DEPTH_CLIP_CONTROL
-                unclipped_depth: false,
-                // Requires Features::CONSERVATIVE_RASTERIZATION
-                conservative: false,
-            },
-            depth_stencil: None, // 1.
-            multisample: MultisampleState {
-                count: 1, // 2.
-                mask: !0, // 3.
-                alpha_to_coverage_enabled: false, // 4.
-            },
-            multiview: None, // 5.
-        });
+        let render_pipeline = create_render_pipeline(
+            &device,
+            &config,
+            &shader,
+            &render_pipeline_layout,
+            "Render Pipeline",
+        );
 
         let shader = device.create_shader_module(include_wgsl!("shader_challenge.wgsl"));
 
-        let render_pipeline_alt = device.create_render_pipeline(&RenderPipelineDescriptor {
-            label: Some("Render Pipeline Challenge"),
-            layout: Some(&render_pipeline_layout),
-            vertex: VertexState {
-                module: &shader,
-                entry_point: "vs_main", // 1.
-                buffers: &[], // 2.
-            },
-            fragment: Some(FragmentState { // 3.
-                module: &shader,
-                entry_point: "fs_main",
-                targets: &[Some(ColorTargetState { // 4.
-                    format: config.format,
-                    blend: Some(BlendState::REPLACE),
-                    write_mask: ColorWrites::ALL,
-                })],
-            }),
-            primitive: PrimitiveState {
-                topology: PrimitiveTopology::TriangleList, // 1.
-                strip_index_format: None,
-                front_face: FrontFace::Ccw, // 2.
-                cull_mode: Some(Face::Back),
-                // Setting this to anything other than Fill requires Features::NON_FILL_POLYGON_MODE
-                polygon_mode: PolygonMode::Fill,
-                // Requires Features::DEPTH_CLIP_CONTROL
-                unclipped_depth: false,
-                // Requires Features::CONSERVATIVE_RASTERIZATION
-                conservative: false,
-            },
-            depth_stencil: None, // 1.
-            multisample: MultisampleState {
-                count: 1, // 2.
-                mask: !0, // 3.
-                alpha_to_coverage_enabled: false, // 4.
-            },
-            multiview: None, // 5.
-        });
+        let render_pipeline_alt = create_render_pipeline(
+            &device,
+            &config,
+            &shader,
+            &render_pipeline_layout,
+            "Render Pipeline Challenge",
+        );
 
         Self {
             surface,
@@ -250,4 +183,50 @@ impl State {
             &self.render_pipeline
         }
     }
+}
+
+fn create_render_pipeline(
+    device: &Device,
+    config: &SurfaceConfiguration,
+    shader: &ShaderModule,
+    layout: &PipelineLayout,
+    label: &str,
+) -> RenderPipeline {
+    device.create_render_pipeline(&RenderPipelineDescriptor {
+        label: Some(label),
+        layout: Some(&layout),
+        vertex: VertexState {
+            module: &shader,
+            entry_point: "vs_main", // 1.
+            buffers: &[], // 2.
+        },
+        fragment: Some(FragmentState { // 3.
+            module: &shader,
+            entry_point: "fs_main",
+            targets: &[Some(ColorTargetState { // 4.
+                format: config.format,
+                blend: Some(BlendState::REPLACE),
+                write_mask: ColorWrites::ALL,
+            })],
+        }),
+        primitive: PrimitiveState {
+            topology: PrimitiveTopology::TriangleList, // 1.
+            strip_index_format: None,
+            front_face: FrontFace::Ccw, // 2.
+            cull_mode: Some(Face::Back),
+            // Setting this to anything other than Fill requires Features::NON_FILL_POLYGON_MODE
+            polygon_mode: PolygonMode::Fill,
+            // Requires Features::DEPTH_CLIP_CONTROL
+            unclipped_depth: false,
+            // Requires Features::CONSERVATIVE_RASTERIZATION
+            conservative: false,
+        },
+        depth_stencil: None, // 1.
+        multisample: MultisampleState {
+            count: 1, // 2.
+            mask: !0, // 3.
+            alpha_to_coverage_enabled: false, // 4.
+        },
+        multiview: None, // 5.
+    })
 }
