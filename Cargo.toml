@@ -10,6 +10,7 @@ crate-type = ["cdylib", "rlib"]
 anyhow = "1"
 bytemuck = { version = "1.4", features = ["derive"] }
 cfg-if = "1"
+cgmath = "0.18"
 pollster = "0.2"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["time"] }

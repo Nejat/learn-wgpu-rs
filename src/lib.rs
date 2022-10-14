@@ -16,6 +16,7 @@ use crate::init::{initialize_environment, initialize_logging};
 use crate::init::initialize_canvas;
 use crate::state::State;
 
+mod controller;
 mod init;
 mod models;
 mod state;

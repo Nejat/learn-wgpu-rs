@@ -6,9 +6,8 @@ use winit::dpi::PhysicalSize;
 use winit::event::WindowEvent;
 use winit::window::Window;
 
-use crate::models::geometry::Geometry;
-use crate::models::texture::Texture;
-use crate::models::vertex::Vertex;
+use crate::controller::CameraController;
+use crate::models::{Camera, CameraConfiguration, Geometry, Texture, Vertex};
 
 const VERTICES: &[Vertex] = &[
     Vertex { position: [-0.0868241, 0.49240386, 0.0], tex_coords: [0.4131759, 0.00759614] },
@@ -25,6 +24,9 @@ const INDICES: &[u16] = &[
 ];
 
 pub struct State {
+    camera: Camera,
+    camera_configuration: CameraConfiguration,
+    camera_controller: CameraController,
     config: SurfaceConfiguration,
     device: Device,
     diffuse_bind_group: BindGroup,
@@ -47,10 +49,37 @@ impl State {
         let (device, queue) = request_device(&adapter).await;
         let config = configure_surface(&adapter, &device, &surface, size);
         let (diffuse_bind_group, diffuse_bind_group_layout) = diffuse_texture(&device, &queue, include_bytes!("assets/happy-tree.png"), "happy-tree");
-        let render_pipeline = render_pipeline(&device, &config, &diffuse_bind_group_layout, include_wgsl!("shader.wgsl"), "shader");
         let geometry = Geometry::new(&device, VERTICES, INDICES);
 
+        let camera = Camera {
+            // position the camera one unit up and 2 units back
+            // +z is out of the screen
+            eye: (0.0, 1.0, 2.0).into(),
+            // have it look at the origin
+            target: (0.0, 0.0, 0.0).into(),
+            // which way is "up"
+            up: cgmath::Vector3::unit_y(),
+            aspect: config.width as f32 / config.height as f32,
+            fovy: 45.0,
+            znear: 0.1,
+            zfar: 100.0,
+        };
+
+        let (camera_configuration, camera_bind_group_layout) = CameraConfiguration::new(&device, &camera, "main");
+        let render_pipeline = render_pipeline(
+            &device,
+            &config,
+            &diffuse_bind_group_layout,
+            &camera_bind_group_layout,
+            include_wgsl!("shader.wgsl"),
+            "shader",
+        );
+        let camera_controller = CameraController::new(0.2);
+
         Self {
+            camera,
+            camera_configuration,
+            camera_controller,
             config,
             device,
             diffuse_bind_group,
@@ -62,8 +91,8 @@ impl State {
         }
     }
 
-    pub fn input(&mut self, _event: &WindowEvent) -> bool {
-        false
+    pub fn input(&mut self, event: &WindowEvent) -> bool {
+        self.camera_controller.process_events(event)
     }
 
     pub fn render(&mut self) -> Result<(), SurfaceError> {
@@ -97,6 +126,7 @@ impl State {
 
             render_pass.set_pipeline(&self.render_pipeline);
             render_pass.set_bind_group(0, &self.diffuse_bind_group, &[]);
+            render_pass.set_bind_group(1, &self.camera_configuration.bind_group, &[]);
             render_pass.set_vertex_buffer(0, geometry.vertex_buffer.slice(..));
             render_pass.set_index_buffer(geometry.index_buffer.slice(..), IndexFormat::Uint16);
             render_pass.draw_indexed(0..geometry.num_indices, 0, 0..1);
@@ -119,7 +149,11 @@ impl State {
         }
     }
 
-    pub fn update(&mut self) {}
+    pub fn update(&mut self) {
+        self.camera_controller.update_camera(&mut self.camera);
+        self.camera_configuration.uniform.update_view_proj(&self.camera);
+        self.queue.write_buffer(&self.camera_configuration.buffer, 0, bytemuck::cast_slice(&[self.camera_configuration.uniform]));
+    }
 }
 
 fn configure_surface(
@@ -198,6 +232,7 @@ fn render_pipeline(
     device: &Device,
     config: &SurfaceConfiguration,
     bind_group_layout: &BindGroupLayout,
+    camera_bind_group_layout: &BindGroupLayout,
     shader: ShaderModuleDescriptor,
     label: &str,
 ) -> RenderPipeline {
@@ -206,7 +241,10 @@ fn render_pipeline(
     let render_pipeline_layout =
         device.create_pipeline_layout(&PipelineLayoutDescriptor {
             label: Some(&format!("{label} - render pipeline layout")),
-            bind_group_layouts: &[bind_group_layout],
+            bind_group_layouts: &[
+                bind_group_layout,
+                camera_bind_group_layout
+            ],
             push_constant_ranges: &[],
         });
 
