@@ -12,29 +12,76 @@ use wgpu::{
 use wgpu::LoadOp::Clear;
 use wgpu::util::{BufferInitDescriptor, DeviceExt};
 use winit::dpi::PhysicalSize;
-use winit::event::WindowEvent;
+use winit::event::{ElementState, KeyboardInput, VirtualKeyCode, WindowEvent};
 use winit::window::Window;
 
 use crate::models::Vertex;
 
-const VERTICES: &[Vertex] = &[
+const VERTICES0: &[Vertex] = &[
     Vertex { position: [0.0, 0.5, 0.0], color: [1.0, 0.0, 0.0] },
     Vertex { position: [-0.5, -0.5, 0.0], color: [0.0, 1.0, 0.0] },
     Vertex { position: [0.5, -0.5, 0.0], color: [0.0, 0.0, 1.0] },
 ];
 
-const INDICES: &[u16] = &[0, 1, 2];
+const INDICES0: &[u16] = &[0, 1, 2];
+
+
+const VERTICES1: &[Vertex] = &[
+    Vertex { position: [-0.0868241, 0.49240386, 0.0], color: [1.0, 0.0, 0.0] }, // A
+    Vertex { position: [-0.49513406, 0.06958647, 0.0], color: [1.0, 0.5, 0.0] }, // B
+    Vertex { position: [-0.21918549, -0.44939706, 0.0], color: [1.0, 1.0, 0.0] }, // C
+    Vertex { position: [0.35966998, -0.3473291, 0.0], color: [0.0, 1.0, 0.0] }, // D
+    Vertex { position: [0.44147372, 0.2347359, 0.0], color: [0.0, 0.0, 1.0] }, // E
+];
+
+const INDICES1: &[u16] = &[
+    0, 1, 4,
+    1, 2, 4,
+    2, 3, 4,
+];
+
+const VERTICES2: &[Vertex] = &[
+    Vertex { position: [0.00, 0.75, 0.00], color: [0.7, 0.0, 1.0] }, // A
+    Vertex { position: [-0.21, 0.28, 0.00], color: [0.7, 0.0, 1.0] }, // B
+    Vertex { position: [-0.71, 0.23, 0.00], color: [0.7, 0.0, 1.0] }, // C
+    Vertex { position: [-0.33, -0.11, 0.00], color: [0.7, 0.0, 1.0] }, // D
+    Vertex { position: [-0.44, -0.61, 0.00], color: [0.7, 0.0, 1.0] }, // D
+    Vertex { position: [0.00, -0.35, 0.00], color: [0.7, 0.0, 1.0] }, // A
+    Vertex { position: [0.44, -0.61, 0.00], color: [0.7, 0.0, 1.0] }, // B
+    Vertex { position: [0.33, -0.11, 0.00], color: [0.7, 0.0, 1.0] }, // C
+    Vertex { position: [0.71, 0.23, 0.00], color: [0.7, 0.0, 1.0] }, // D
+    Vertex { position: [0.21, 0.28, 0.00], color: [0.7, 0.0, 1.0] }, // D
+    Vertex { position: [0.00, 0.00, 0.00], color: [1.0, 0.0, 0.8] }, // D
+];
+
+const INDICES2: &[u16] = &[
+    0, 1, 10,
+    1, 2, 10,
+    2, 3, 10,
+    3, 4, 10,
+    4, 5, 10,
+    5, 6, 10,
+    6, 7, 10,
+    7, 8, 10,
+    8, 9, 10,
+    9, 0, 10,
+];
+
+pub struct Geometry {
+    index_buffer: Buffer,
+    num_indices: u32,
+    vertex_buffer: Buffer,
+}
 
 pub struct State {
     config: SurfaceConfiguration,
     device: Device,
-    index_buffer: Buffer,
-    num_indices: u32,
+    geometry: Vec<Geometry>,
+    geometry_index: usize,
     queue: Queue,
     render_pipeline: RenderPipeline,
     pub size: PhysicalSize<u32>,
     surface: Surface,
-    vertex_buffer: Buffer,
 }
 
 impl State {
@@ -138,37 +185,40 @@ impl State {
             multiview: None,
         });
 
-        let vertex_buffer = device.create_buffer_init(
-            &BufferInitDescriptor {
-                label: Some("Vertex Buffer"),
-                contents: bytemuck::cast_slice(VERTICES),
-                usage: BufferUsages::VERTEX,
-            }
-        );
-
-        let index_buffer = device.create_buffer_init(
-            &BufferInitDescriptor {
-                label: Some("Index Buffer"),
-                contents: bytemuck::cast_slice(INDICES),
-                usage: BufferUsages::INDEX,
-            }
-        );
+        let geometry = vec![
+            create_geometry(&device, VERTICES0, INDICES0),
+            create_geometry(&device, VERTICES1, INDICES1),
+            create_geometry(&device, VERTICES2, INDICES2),
+        ];
 
         Self {
             config,
             device,
+            geometry,
+            geometry_index: 0,
             queue,
-            num_indices: INDICES.len() as u32,
             render_pipeline,
             size,
             surface,
-            vertex_buffer,
-            index_buffer,
         }
     }
 
-    pub fn input(&mut self, _event: &WindowEvent) -> bool {
-        false
+    pub fn input(&mut self, event: &WindowEvent) -> bool {
+        if let WindowEvent::KeyboardInput {
+            input:
+            KeyboardInput {
+                state: ElementState::Pressed,
+                virtual_keycode: Some(VirtualKeyCode::Space),
+                ..
+            },
+            ..
+        } = event {
+            self.geometry_index = (self.geometry_index + 1) % self.geometry.len();
+
+            true
+        } else {
+            false
+        }
     }
 
     pub fn render(&mut self) -> Result<(), SurfaceError> {
@@ -198,10 +248,12 @@ impl State {
                 depth_stencil_attachment: None,
             });
 
+            let geometry = self.geometry.get(self.geometry_index).unwrap();
+
             render_pass.set_pipeline(&self.render_pipeline);
-            render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
-            render_pass.set_index_buffer(self.index_buffer.slice(..), IndexFormat::Uint16);
-            render_pass.draw_indexed(0..self.num_indices, 0, 0..1);
+            render_pass.set_vertex_buffer(0, geometry.vertex_buffer.slice(..));
+            render_pass.set_index_buffer(geometry.index_buffer.slice(..), IndexFormat::Uint16);
+            render_pass.draw_indexed(0..geometry.num_indices, 0, 0..1);
         }
 
         // submit will accept anything that implements IntoIter
@@ -222,4 +274,28 @@ impl State {
     }
 
     pub fn update(&mut self) {}
+}
+
+fn create_geometry(device: &Device, vertices: &[Vertex], indices: &[u16]) -> Geometry {
+    let vertex_buffer = device.create_buffer_init(
+        &BufferInitDescriptor {
+            label: Some("Vertex Buffer"),
+            contents: bytemuck::cast_slice(vertices),
+            usage: BufferUsages::VERTEX,
+        }
+    );
+
+    let index_buffer = device.create_buffer_init(
+        &BufferInitDescriptor {
+            label: Some("Index Buffer"),
+            contents: bytemuck::cast_slice(indices),
+            usage: BufferUsages::INDEX,
+        }
+    );
+
+    Geometry {
+        num_indices: indices.len() as u32,
+        vertex_buffer,
+        index_buffer,
+    }
 }
