@@ -6,12 +6,12 @@ use wgpu::{BufferAddress, VertexAttribute, VertexBufferLayout, VertexStepMode};
 #[derive(Copy, Clone, Debug, Pod, Zeroable)]
 pub struct Vertex {
     pub position: [f32; 3],
-    pub color: [f32; 3],
+    pub tex_coords: [f32; 2],
 }
 
 impl Vertex {
     pub fn desc<'a>() -> VertexBufferLayout<'a> {
-        const ATTRIBUTES: [VertexAttribute; 2] = vertex_attr_array![0 => Float32x3, 1 => Float32x3];
+        const ATTRIBUTES: [VertexAttribute; 2] = vertex_attr_array![0 => Float32x3, 1 => Float32x2];
 
         VertexBufferLayout {
             array_stride: size_of::<Vertex>() as BufferAddress,
@@ -27,7 +27,7 @@ impl Vertex {
                 VertexAttribute {
                     offset: size_of::<[f32; 3]>() as BufferAddress,
                     shader_location: 1,
-                    format: VertexFormat::Float32x3,
+                    format: VertexFormat::Float32x2,
                 }
             ]
             */

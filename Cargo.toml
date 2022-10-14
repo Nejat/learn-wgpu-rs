@@ -7,6 +7,7 @@ edition = "2021"
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
+anyhow = "1"
 bytemuck = { version = "1.4", features = ["derive"] }
 cfg-if = "1"
 pollster = "0.2"
@@ -14,6 +15,11 @@ tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["time"] }
 wgpu = "0.13"
 winit = "0.27"
+
+[dependencies.image]
+version = "0.24"
+default-features = false
+features = ["png", "jpeg"]
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 console_error_panic_hook = "0.1"
