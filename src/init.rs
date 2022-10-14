@@ -1,5 +1,5 @@
-use winit::window::{Window, WindowBuilder};
 use winit::event_loop::EventLoop;
+use winit::window::{Window, WindowBuilder};
 
 #[cfg(target_arch = "wasm32")]
 pub fn initialize_canvas(window: &Window) {

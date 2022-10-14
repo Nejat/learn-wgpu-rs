@@ -1,12 +1,15 @@
 #[macro_use]
+extern crate bytemuck;
+#[macro_use]
 extern crate tracing;
 #[macro_use]
 extern crate wgpu;
 
-#[cfg(target_arch = "wasm32")]
-use wasm_bindgen::prelude::*;
 use winit::event::*;
 use winit::event_loop::ControlFlow;
+
+#[cfg(target_arch = "wasm32")]
+use wasm_bindgen::prelude::*;
 
 use crate::init::{initialize_environment, initialize_logging};
 #[cfg(target_arch = "wasm32")]
@@ -14,6 +17,7 @@ use crate::init::initialize_canvas;
 use crate::state::State;
 
 mod init;
+mod models;
 mod state;
 
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen(start))]

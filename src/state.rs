@@ -1,25 +1,40 @@
 use std::iter::once;
 
 use wgpu::{
-    Backends, BlendState, Color, ColorTargetState, ColorWrites, CommandEncoderDescriptor, Device,
-    DeviceDescriptor, Face, Features, FragmentState, FrontFace, Instance, Limits, MultisampleState,
-    Operations, PipelineLayoutDescriptor, PolygonMode, PowerPreference, PresentMode, PrimitiveState,
+    Backends, BlendState, Buffer, BufferUsages, Color, ColorTargetState, ColorWrites,
+    CommandEncoderDescriptor, Device, DeviceDescriptor, Face, Features, FragmentState,
+    FrontFace, IndexFormat, Instance, Limits, MultisampleState, Operations,
+    PipelineLayoutDescriptor, PolygonMode, PowerPreference, PresentMode, PrimitiveState,
     PrimitiveTopology, Queue, RenderPassColorAttachment, RenderPassDescriptor, RenderPipeline,
     RenderPipelineDescriptor, RequestAdapterOptions, Surface, SurfaceConfiguration, SurfaceError,
-    TextureUsages, TextureViewDescriptor, VertexState
+    TextureUsages, TextureViewDescriptor, VertexState,
 };
 use wgpu::LoadOp::Clear;
+use wgpu::util::{BufferInitDescriptor, DeviceExt};
 use winit::dpi::PhysicalSize;
 use winit::event::WindowEvent;
 use winit::window::Window;
 
+use crate::models::Vertex;
+
+const VERTICES: &[Vertex] = &[
+    Vertex { position: [0.0, 0.5, 0.0], color: [1.0, 0.0, 0.0] },
+    Vertex { position: [-0.5, -0.5, 0.0], color: [0.0, 1.0, 0.0] },
+    Vertex { position: [0.5, -0.5, 0.0], color: [0.0, 0.0, 1.0] },
+];
+
+const INDICES: &[u16] = &[0, 1, 2];
+
 pub struct State {
-    surface: Surface,
-    device: Device,
-    queue: Queue,
     config: SurfaceConfiguration,
+    device: Device,
+    index_buffer: Buffer,
+    num_indices: u32,
+    queue: Queue,
     render_pipeline: RenderPipeline,
     pub size: PhysicalSize<u32>,
+    surface: Surface,
+    vertex_buffer: Buffer,
 }
 
 impl State {
@@ -88,22 +103,24 @@ impl State {
             layout: Some(&render_pipeline_layout),
             vertex: VertexState {
                 module: &shader,
-                entry_point: "vs_main", // 1.
-                buffers: &[], // 2.
+                entry_point: "vs_main",
+                buffers: &[
+                    Vertex::desc()
+                ],
             },
-            fragment: Some(FragmentState { // 3.
+            fragment: Some(FragmentState {
                 module: &shader,
                 entry_point: "fs_main",
-                targets: &[Some(ColorTargetState { // 4.
+                targets: &[Some(ColorTargetState {
                     format: config.format,
                     blend: Some(BlendState::REPLACE),
                     write_mask: ColorWrites::ALL,
                 })],
             }),
             primitive: PrimitiveState {
-                topology: PrimitiveTopology::TriangleList, // 1.
+                topology: PrimitiveTopology::TriangleList,
                 strip_index_format: None,
-                front_face: FrontFace::Ccw, // 2.
+                front_face: FrontFace::Ccw,
                 cull_mode: Some(Face::Back),
                 // Setting this to anything other than Fill requires Features::NON_FILL_POLYGON_MODE
                 polygon_mode: PolygonMode::Fill,
@@ -112,16 +129,42 @@ impl State {
                 // Requires Features::CONSERVATIVE_RASTERIZATION
                 conservative: false,
             },
-            depth_stencil: None, // 1.
+            depth_stencil: None,
             multisample: MultisampleState {
-                count: 1, // 2.
-                mask: !0, // 3.
-                alpha_to_coverage_enabled: false, // 4.
+                count: 1,
+                mask: !0,
+                alpha_to_coverage_enabled: false,
             },
-            multiview: None, // 5.
+            multiview: None,
         });
 
-        Self { surface, device, queue, config, render_pipeline, size }
+        let vertex_buffer = device.create_buffer_init(
+            &BufferInitDescriptor {
+                label: Some("Vertex Buffer"),
+                contents: bytemuck::cast_slice(VERTICES),
+                usage: BufferUsages::VERTEX,
+            }
+        );
+
+        let index_buffer = device.create_buffer_init(
+            &BufferInitDescriptor {
+                label: Some("Index Buffer"),
+                contents: bytemuck::cast_slice(INDICES),
+                usage: BufferUsages::INDEX,
+            }
+        );
+
+        Self {
+            config,
+            device,
+            queue,
+            num_indices: INDICES.len() as u32,
+            render_pipeline,
+            size,
+            surface,
+            vertex_buffer,
+            index_buffer,
+        }
     }
 
     pub fn input(&mut self, _event: &WindowEvent) -> bool {
@@ -155,8 +198,10 @@ impl State {
                 depth_stencil_attachment: None,
             });
 
-            render_pass.set_pipeline(&self.render_pipeline); // 2.
-            render_pass.draw(0..3, 0..1); // 3.
+            render_pass.set_pipeline(&self.render_pipeline);
+            render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
+            render_pass.set_index_buffer(self.index_buffer.slice(..), IndexFormat::Uint16);
+            render_pass.draw_indexed(0..self.num_indices, 0, 0..1);
         }
 
         // submit will accept anything that implements IntoIter
