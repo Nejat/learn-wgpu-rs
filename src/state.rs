@@ -1,21 +1,21 @@
 use std::iter::once;
 
 use wgpu::{
-    Backends, BlendState, Buffer, BufferUsages, Color, ColorTargetState, ColorWrites,
-    CommandEncoderDescriptor, Device, DeviceDescriptor, Face, Features, FragmentState,
-    FrontFace, IndexFormat, Instance, Limits, MultisampleState, Operations,
-    PipelineLayoutDescriptor, PolygonMode, PowerPreference, PresentMode, PrimitiveState,
-    PrimitiveTopology, Queue, RenderPassColorAttachment, RenderPassDescriptor, RenderPipeline,
-    RenderPipelineDescriptor, RequestAdapterOptions, Surface, SurfaceConfiguration, SurfaceError,
-    TextureUsages, TextureViewDescriptor, VertexState,
+    Adapter, Backends, BlendState, Color, ColorTargetState, ColorWrites, CommandEncoderDescriptor,
+    Device, DeviceDescriptor, Face, Features, FragmentState, FrontFace, IndexFormat, Instance,
+    Limits, MultisampleState, Operations, PipelineLayoutDescriptor, PolygonMode, PowerPreference,
+    PresentMode, PrimitiveState, PrimitiveTopology, Queue, RenderPassColorAttachment,
+    RenderPassDescriptor, RenderPipeline, RenderPipelineDescriptor, RequestAdapterOptions,
+    ShaderModuleDescriptor, Surface, SurfaceConfiguration, SurfaceError, TextureUsages,
+    TextureViewDescriptor, VertexState
 };
 use wgpu::LoadOp::Clear;
-use wgpu::util::{BufferInitDescriptor, DeviceExt};
 use winit::dpi::PhysicalSize;
 use winit::event::WindowEvent;
 use winit::window::Window;
 
-use crate::models::Vertex;
+use crate::models::geometry::Geometry;
+use crate::models::vertex::Vertex;
 
 const VERTICES: &[Vertex] = &[
     Vertex { position: [0.0, 0.5, 0.0], color: [1.0, 0.0, 0.0] },
@@ -28,142 +28,35 @@ const INDICES: &[u16] = &[0, 1, 2];
 pub struct State {
     config: SurfaceConfiguration,
     device: Device,
-    index_buffer: Buffer,
-    num_indices: u32,
+    geometry: Geometry,
     queue: Queue,
     render_pipeline: RenderPipeline,
     pub size: PhysicalSize<u32>,
     surface: Surface,
-    vertex_buffer: Buffer,
 }
 
 impl State {
     // Creating some of the wgpu types requires async code
     pub async fn new(window: &Window) -> Self {
         let size = window.inner_size();
-
         // The instance is a handle to our GPU
         // Backends::all => Vulkan + Metal + DX12 + Browser WebGPU
         let instance = Instance::new(Backends::all());
         let surface = unsafe { instance.create_surface(window) };
-
-        let adapter = instance.request_adapter(
-            &RequestAdapterOptions {
-                power_preference: PowerPreference::default(),
-                compatible_surface: Some(&surface),
-                force_fallback_adapter: false,
-            },
-        ).await.unwrap();
-
-        // let adapter = instance
-        //     .enumerate_adapters(Backends::all())
-        //     .filter(|adapter| {
-        //         // Check if this adapter supports our surface
-        //         surface.get_preferred_format(&adapter).is_some()
-        //     })
-        //     .next()
-        //     .unwrap();
-
-        let (device, queue) = adapter.request_device(
-            &DeviceDescriptor {
-                features: Features::empty(),
-                // WebGL doesn't support all of wgpu's features, so if
-                // we're building for the web we'll have to disable some.
-                limits: if cfg!(target_arch = "wasm32") {
-                    Limits::downlevel_webgl2_defaults()
-                } else {
-                    Limits::default()
-                },
-                label: None,
-            },
-            None, // Trace path
-        ).await.unwrap();
-
-        let config = SurfaceConfiguration {
-            usage: TextureUsages::RENDER_ATTACHMENT,
-            format: surface.get_supported_formats(&adapter)[0],
-            width: size.width,
-            height: size.height,
-            present_mode: PresentMode::Fifo,
-        };
-
-        surface.configure(&device, &config);
-
-        let shader = device.create_shader_module(include_wgsl!("shader.wgsl"));
-
-        let render_pipeline_layout =
-            device.create_pipeline_layout(&PipelineLayoutDescriptor {
-                label: Some("Render Pipeline Layout"),
-                bind_group_layouts: &[],
-                push_constant_ranges: &[],
-            });
-
-        let render_pipeline = device.create_render_pipeline(&RenderPipelineDescriptor {
-            label: Some("Render Pipeline"),
-            layout: Some(&render_pipeline_layout),
-            vertex: VertexState {
-                module: &shader,
-                entry_point: "vs_main",
-                buffers: &[
-                    Vertex::desc()
-                ],
-            },
-            fragment: Some(FragmentState {
-                module: &shader,
-                entry_point: "fs_main",
-                targets: &[Some(ColorTargetState {
-                    format: config.format,
-                    blend: Some(BlendState::REPLACE),
-                    write_mask: ColorWrites::ALL,
-                })],
-            }),
-            primitive: PrimitiveState {
-                topology: PrimitiveTopology::TriangleList,
-                strip_index_format: None,
-                front_face: FrontFace::Ccw,
-                cull_mode: Some(Face::Back),
-                // Setting this to anything other than Fill requires Features::NON_FILL_POLYGON_MODE
-                polygon_mode: PolygonMode::Fill,
-                // Requires Features::DEPTH_CLIP_CONTROL
-                unclipped_depth: false,
-                // Requires Features::CONSERVATIVE_RASTERIZATION
-                conservative: false,
-            },
-            depth_stencil: None,
-            multisample: MultisampleState {
-                count: 1,
-                mask: !0,
-                alpha_to_coverage_enabled: false,
-            },
-            multiview: None,
-        });
-
-        let vertex_buffer = device.create_buffer_init(
-            &BufferInitDescriptor {
-                label: Some("Vertex Buffer"),
-                contents: bytemuck::cast_slice(VERTICES),
-                usage: BufferUsages::VERTEX,
-            }
-        );
-
-        let index_buffer = device.create_buffer_init(
-            &BufferInitDescriptor {
-                label: Some("Index Buffer"),
-                contents: bytemuck::cast_slice(INDICES),
-                usage: BufferUsages::INDEX,
-            }
-        );
+        let adapter = request_adapter(&instance, &surface).await;
+        let (device, queue) = request_device(&adapter).await;
+        let config = configure_surface(&adapter, &device, &surface, size);
+        let render_pipeline = render_pipeline(&device, &config, include_wgsl!("shader.wgsl"));
+        let geometry = Geometry::new(&device, VERTICES, INDICES);
 
         Self {
             config,
             device,
+            geometry,
             queue,
-            num_indices: INDICES.len() as u32,
             render_pipeline,
             size,
             surface,
-            vertex_buffer,
-            index_buffer,
         }
     }
 
@@ -198,10 +91,12 @@ impl State {
                 depth_stencil_attachment: None,
             });
 
+            let geometry = &self.geometry;
+
             render_pass.set_pipeline(&self.render_pipeline);
-            render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
-            render_pass.set_index_buffer(self.index_buffer.slice(..), IndexFormat::Uint16);
-            render_pass.draw_indexed(0..self.num_indices, 0, 0..1);
+            render_pass.set_vertex_buffer(0, geometry.vertex_buffer.slice(..));
+            render_pass.set_index_buffer(geometry.index_buffer.slice(..), IndexFormat::Uint16);
+            render_pass.draw_indexed(0..geometry.num_indices, 0, 0..1);
         }
 
         // submit will accept anything that implements IntoIter
@@ -222,4 +117,114 @@ impl State {
     }
 
     pub fn update(&mut self) {}
+}
+
+fn configure_surface(
+    adapter: &Adapter,
+    device: &Device,
+    surface: &Surface,
+    size: PhysicalSize<u32>,
+) -> SurfaceConfiguration {
+    let config = SurfaceConfiguration {
+        usage: TextureUsages::RENDER_ATTACHMENT,
+        format: surface.get_supported_formats(&adapter)[0],
+        width: size.width,
+        height: size.height,
+        present_mode: PresentMode::Fifo,
+    };
+
+    surface.configure(&device, &config);
+
+    config
+}
+
+fn render_pipeline(
+    device: &Device,
+    config: &SurfaceConfiguration,
+    shader: ShaderModuleDescriptor,
+) -> RenderPipeline {
+    let shader = device.create_shader_module(shader);
+
+    let render_pipeline_layout =
+        device.create_pipeline_layout(&PipelineLayoutDescriptor {
+            label: Some("Render Pipeline Layout"),
+            bind_group_layouts: &[],
+            push_constant_ranges: &[],
+        });
+
+    device.create_render_pipeline(&RenderPipelineDescriptor {
+        label: Some("Render Pipeline"),
+        layout: Some(&render_pipeline_layout),
+        vertex: VertexState {
+            module: &shader,
+            entry_point: "vs_main",
+            buffers: &[
+                Vertex::desc()
+            ],
+        },
+        fragment: Some(FragmentState {
+            module: &shader,
+            entry_point: "fs_main",
+            targets: &[Some(ColorTargetState {
+                format: config.format,
+                blend: Some(BlendState::REPLACE),
+                write_mask: ColorWrites::ALL,
+            })],
+        }),
+        primitive: PrimitiveState {
+            topology: PrimitiveTopology::TriangleList,
+            strip_index_format: None,
+            front_face: FrontFace::Ccw,
+            cull_mode: Some(Face::Back),
+            // Setting this to anything other than Fill requires Features::NON_FILL_POLYGON_MODE
+            polygon_mode: PolygonMode::Fill,
+            // Requires Features::DEPTH_CLIP_CONTROL
+            unclipped_depth: false,
+            // Requires Features::CONSERVATIVE_RASTERIZATION
+            conservative: false,
+        },
+        depth_stencil: None,
+        multisample: MultisampleState {
+            count: 1,
+            mask: !0,
+            alpha_to_coverage_enabled: false,
+        },
+        multiview: None,
+    })
+}
+
+async fn request_adapter(instance: &Instance, surface: &Surface) -> Adapter {
+    instance.request_adapter(
+        &RequestAdapterOptions {
+            power_preference: PowerPreference::default(),
+            compatible_surface: Some(surface),
+            force_fallback_adapter: false,
+        },
+    ).await.unwrap()
+
+    // let adapter = instance
+    //     .enumerate_adapters(Backends::all())
+    //     .filter(|adapter| {
+    //         // Check if this adapter supports our surface
+    //         surface.get_preferred_format(&adapter).is_some()
+    //     })
+    //     .next()
+    //     .unwrap();
+}
+
+async fn request_device(adapter: &Adapter) -> (Device, Queue) {
+    adapter.request_device(
+        &DeviceDescriptor {
+            features: Features::empty(),
+            // WebGL doesn't support all of wgpu's features, so if
+            // we're building for the web we'll have to disable some.
+            limits: if cfg!(target_arch = "wasm32") {
+                Limits::downlevel_webgl2_defaults()
+            } else {
+                Limits::default()
+            },
+            label: None,
+        },
+        None, // Trace path
+    ).await.unwrap()
 }

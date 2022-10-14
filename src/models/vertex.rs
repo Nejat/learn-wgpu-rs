@@ -17,7 +17,7 @@ impl Vertex {
             array_stride: size_of::<Vertex>() as BufferAddress,
             attributes: &ATTRIBUTES,
             step_mode: VertexStepMode::Vertex,
-/*
+            /*
             attributes: &[
                 VertexAttribute {
                     offset: 0,
@@ -30,7 +30,7 @@ impl Vertex {
                     format: VertexFormat::Float32x3,
                 }
             ]
-*/
+            */
         }
     }
 }
