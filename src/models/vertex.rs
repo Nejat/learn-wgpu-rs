@@ -10,11 +10,11 @@ pub struct Vertex {
 }
 
 impl Vertex {
-    pub fn desc<'a>() -> VertexBufferLayout<'a> {
+    pub const fn desc<'a>() -> VertexBufferLayout<'a> {
         const ATTRIBUTES: [VertexAttribute; 2] = vertex_attr_array![0 => Float32x3, 1 => Float32x2];
 
         VertexBufferLayout {
-            array_stride: size_of::<Vertex>() as BufferAddress,
+            array_stride: size_of::<Self>() as BufferAddress,
             attributes: &ATTRIBUTES,
             step_mode: VertexStepMode::Vertex,
             /*

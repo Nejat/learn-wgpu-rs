@@ -2,6 +2,11 @@
 name = "learn-wgpu"
 version = "0.1.0"
 edition = "2021"
+description = "Working through the excellent 'Learn wgpu' tutorial series. https://sotrh.github.io/learn-wgpu/"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/Nejat/learn-wgpu-rs"
+keywords = ["wgpu"]
+categories = ["graphics"]
 
 [lib]
 crate-type = ["cdylib", "rlib"]

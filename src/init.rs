@@ -3,6 +3,7 @@ use winit::window::{Window, WindowBuilder};
 
 #[cfg(target_arch = "wasm32")]
 pub fn initialize_canvas(window: &Window) {
+    use web_sys::Element;
     use winit::dpi::PhysicalSize;
     use winit::platform::web::WindowExtWebSys;
 
@@ -14,7 +15,7 @@ pub fn initialize_canvas(window: &Window) {
         .and_then(|win| win.document())
         .and_then(|doc| {
             let dst = doc.get_element_by_id("lean-wgpu")?;
-            let canvas = web_sys::Element::from(window.canvas());
+            let canvas = Element::from(window.canvas());
 
             dst.append_child(&canvas).ok()?;
 

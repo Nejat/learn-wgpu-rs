@@ -1,6 +1,6 @@
 use cgmath::{Matrix4, SquareMatrix};
 
-use crate::models::camera::Camera;
+use crate::models::Camera;
 
 // We need this for Rust to store our data correctly for the shaders
 #[repr(C)]

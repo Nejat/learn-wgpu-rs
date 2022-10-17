@@ -1,6 +1,8 @@
 use bytemuck::cast_slice;
-use wgpu::*;
-use wgpu::util::DeviceExt;
+use wgpu::{
+    BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor,
+    BindGroupLayoutEntry, BindingType, Buffer, BufferBindingType, BufferUsages, Device, ShaderStages};
+use wgpu::util::{BufferInitDescriptor, DeviceExt};
 
 use crate::models::{Camera, CameraUniform};
 
@@ -11,13 +13,13 @@ pub struct CameraConfiguration {
 }
 
 impl CameraConfiguration {
-    pub fn new(device: &Device, camera: &Camera, label: &str) -> (CameraConfiguration, BindGroupLayout) {
+    pub fn new(device: &Device, camera: &Camera, label: &str) -> (Self, BindGroupLayout) {
         let mut camera_uniform = CameraUniform::new();
 
-        camera_uniform.update_view_proj(&camera);
+        camera_uniform.update_view_proj(camera);
 
         let camera_buffer = device.create_buffer_init(
-            &util::BufferInitDescriptor {
+            &BufferInitDescriptor {
                 label: Some(&format!("{label} - camera buffer")),
                 contents: cast_slice(&[camera_uniform]),
                 usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,

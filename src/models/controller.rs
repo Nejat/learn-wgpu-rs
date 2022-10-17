@@ -3,6 +3,7 @@ use winit::event::{ElementState, KeyboardInput, VirtualKeyCode, WindowEvent};
 
 use crate::models::Camera;
 
+#[allow(clippy::struct_excessive_bools)]
 pub struct CameraController {
     speed: f32,
     is_forward_pressed: bool,
@@ -12,7 +13,7 @@ pub struct CameraController {
 }
 
 impl CameraController {
-    pub fn new(speed: f32) -> Self {
+    pub const fn new(speed: f32) -> Self {
         Self {
             speed,
             is_forward_pressed: false,

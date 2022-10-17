@@ -1,8 +1,12 @@
 use std::num::NonZeroU32;
 
-use anyhow::*;
+use anyhow::Result;
 use image::GenericImageView;
-use wgpu::*;
+use wgpu::{
+    AddressMode, Device, Extent3d, FilterMode, ImageCopyTexture, ImageDataLayout, Origin3d,
+    Queue, Sampler, SamplerDescriptor, TextureAspect, TextureDescriptor, TextureDimension,
+    TextureFormat, TextureUsages, TextureView, TextureViewDescriptor,
+};
 
 pub struct Texture {
     pub texture: wgpu::Texture,
@@ -19,7 +23,7 @@ impl Texture {
     ) -> Result<Self> {
         let img = image::load_from_memory(bytes)?;
 
-        Self::from_image(device, queue, &img, Some(label))
+        Ok(Self::from_image(device, queue, &img, Some(label)))
     }
 
     pub fn from_image(
@@ -27,7 +31,7 @@ impl Texture {
         queue: &Queue,
         img: &image::DynamicImage,
         label: Option<&str>,
-    ) -> Result<Self> {
+    ) -> Self {
         let rgba = img.to_rgba8();
         let dimensions = img.dimensions();
 
@@ -79,6 +83,6 @@ impl Texture {
             }
         );
 
-        Ok(Self { texture, view, sampler })
+        Self { texture, view, sampler }
     }
 }

@@ -2,7 +2,7 @@ use bytemuck::cast_slice;
 use wgpu::{Buffer, BufferUsages, Device};
 use wgpu::util::{BufferInitDescriptor, DeviceExt};
 
-use crate::models::vertex::Vertex;
+use crate::models::Vertex;
 
 pub struct Geometry {
     pub num_indices: u32,
@@ -28,6 +28,7 @@ impl Geometry {
             }
         );
 
+        #[allow(clippy::cast_possible_truncation)]
         Self {
             num_indices: indices.len() as u32,
             index_buffer,
