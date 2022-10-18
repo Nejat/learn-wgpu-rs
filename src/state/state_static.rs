@@ -2,12 +2,10 @@ use cgmath::Vector3;
 use wgpu::{Backends, Instance};
 use winit::window::Window;
 
-use crate::initialize::{
-    diffuse_texture, render_pipeline, request_adapter, request_device, surface_configuration,
-};
 use crate::meshes::{INDICES, VERTICES};
 use crate::models::{Camera, CameraConfiguration, CameraController, Geometry};
-use crate::state::State;
+use crate::State;
+use crate::state::initialize::{diffuse_texture, get_instances, render_pipeline, request_adapter, request_device, surface_configuration};
 
 impl State {
     // Creating some of the wgpu types requires async code
@@ -24,6 +22,7 @@ impl State {
         let (diffuse_bind_group, diffuse_bind_group_layout) = diffuse_texture(&device, &queue, include_bytes!("../assets/happy-tree.png"), "happy-tree");
         let geometry = Geometry::new(&device, VERTICES, INDICES);
         let camera_controller = CameraController::new(0.2);
+        let (instances, instance_buffer) = get_instances(&device);
 
         #[allow(clippy::cast_precision_loss)]
             let camera = Camera {
@@ -58,6 +57,8 @@ impl State {
             device,
             diffuse_bind_group,
             geometry,
+            instances,
+            instance_buffer,
             queue,
             render_pipeline,
             size,

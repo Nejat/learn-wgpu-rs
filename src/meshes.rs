@@ -12,4 +12,9 @@ pub const INDICES: &[u16] = &[
     0, 1, 4,
     1, 2, 4,
     2, 3, 4,
+    // creates back of mesh if cull mode is face back, see fn render_pipeline
+    // using None for culling mode would draw both sides of all triangles in mesh
+    4, 1, 0,
+    4, 2, 1,
+    4, 3, 2,
 ];

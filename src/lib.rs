@@ -25,7 +25,6 @@ use crate::init::initialize_canvas;
 use crate::state::{render, State};
 
 mod init;
-mod initialize;
 mod meshes;
 mod models;
 mod state;

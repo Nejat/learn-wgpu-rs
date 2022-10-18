@@ -34,8 +34,10 @@ pub fn render(state: &mut State) -> Result<(), SurfaceError> {
         render_pass.set_bind_group(0, &state.diffuse_bind_group, &[]);
         render_pass.set_bind_group(1, &state.camera_configuration.bind_group, &[]);
         render_pass.set_vertex_buffer(0, geometry.vertex_buffer.slice(..));
+        render_pass.set_vertex_buffer(1, state.instance_buffer.slice(..));
         render_pass.set_index_buffer(geometry.index_buffer.slice(..), IndexFormat::Uint16);
-        render_pass.draw_indexed(0..geometry.num_indices, 0, 0..1);
+        #[allow(clippy::cast_possible_truncation)]
+        render_pass.draw_indexed(0..geometry.num_indices, 0, 0..state.instances.len() as _);
     }
 
     // submit will accept anything that implements IntoIter

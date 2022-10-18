@@ -1,8 +1,15 @@
+use bytemuck::cast_slice;
+use cgmath::{Deg, InnerSpace, Quaternion, Rotation3, Vector3, Zero};
 #[allow(clippy::wildcard_imports)]
 use wgpu::*;
+use wgpu::util::{BufferInitDescriptor, DeviceExt};
 use winit::dpi::PhysicalSize;
 
-use crate::models::{Texture, Vertex};
+use crate::models::{Instance as MeshInstance, InstanceRaw, Texture, Vertex};
+
+const NUM_INSTANCES_PER_ROW: u32 = 10;
+#[allow(clippy::cast_precision_loss)]
+const INSTANCE_DISPLACEMENT: Vector3<f32> = Vector3::new(NUM_INSTANCES_PER_ROW as f32 * 0.5, 0.0, NUM_INSTANCES_PER_ROW as f32 * 0.5);
 
 pub fn diffuse_texture(
     device: &Device,
@@ -57,6 +64,39 @@ pub fn diffuse_texture(
     (texture_bind_group, texture_bind_group_layout)
 }
 
+pub fn get_instances(device: &Device) -> (Vec<MeshInstance>, Buffer) {
+    let instances = (0..NUM_INSTANCES_PER_ROW).flat_map(|z| {
+        #[allow(clippy::cast_precision_loss)]
+        (0..NUM_INSTANCES_PER_ROW).map(move |x| {
+            let position = Vector3 { x: x as f32, y: 0.0, z: z as f32 } - INSTANCE_DISPLACEMENT;
+
+            let rotation = if position.is_zero() {
+                // this is needed so an object at (0, 0, 0) won't get scaled to zero
+                // as Quaternions can effect scale if they're not created correctly
+                Quaternion::from_axis_angle(Vector3::unit_z(), Deg(0.0))
+            } else {
+                Quaternion::from_axis_angle(position.normalize(), Deg(45.0))
+            };
+
+            MeshInstance {
+                position,
+                rotation,
+            }
+        })
+    }).collect::<Vec<_>>();
+
+    let instance_data = instances.iter().map(Into::into).collect::<Vec<InstanceRaw>>();
+    let instance_buffer = device.create_buffer_init(
+        &BufferInitDescriptor {
+            label: Some("instance buffer"),
+            contents: cast_slice(&instance_data),
+            usage: BufferUsages::VERTEX,
+        }
+    );
+
+    (instances, instance_buffer)
+}
+
 pub fn render_pipeline(
     device: &Device,
     config: &SurfaceConfiguration,
@@ -84,7 +124,8 @@ pub fn render_pipeline(
             module: &shader,
             entry_point: "vs_main",
             buffers: &[
-                Vertex::desc()
+                Vertex::desc(),
+                InstanceRaw::desc(),
             ],
         },
         fragment: Some(FragmentState {
