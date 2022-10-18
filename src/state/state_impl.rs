@@ -1,3 +1,4 @@
+use bytemuck::cast_slice;
 use winit::dpi::PhysicalSize;
 use winit::event::WindowEvent;
 
@@ -25,6 +26,9 @@ impl State {
     pub fn update(&mut self) {
         self.camera_controller.update_camera(&mut self.camera);
         self.camera_configuration.uniform.update_view_proj(&self.camera);
-        self.queue.write_buffer(&self.camera_configuration.buffer, 0, bytemuck::cast_slice(&[self.camera_configuration.uniform]));
+        self.instances.update();
+        let instances_raw = self.instances.get_raw();
+        self.queue.write_buffer(&self.instance_buffer, 0, cast_slice(&instances_raw));
+        self.queue.write_buffer(&self.camera_configuration.buffer, 0, cast_slice(&[self.camera_configuration.uniform]));
     }
 }

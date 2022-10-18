@@ -1,11 +1,38 @@
 use std::mem::size_of;
 
-use cgmath::{Matrix4, Quaternion, Vector3};
+use cgmath::{Deg, Matrix4, Quaternion, Rotation3, Vector3};
 use wgpu::{BufferAddress, VertexAttribute, VertexBufferLayout, VertexFormat, VertexStepMode};
 
 pub struct Instance {
     pub position: Vector3<f32>,
     pub rotation: Quaternion<f32>,
+}
+
+pub struct Instances(Vec<Instance>);
+
+impl From<Vec<Instance>> for Instances {
+    fn from(src: Vec<Instance>) -> Self {
+        Self(src)
+    }
+}
+
+impl Instances {
+    pub fn get_raw(&self) -> Vec<InstanceRaw> {
+        self.0.iter().map(Into::into).collect::<Vec<_>>()
+    }
+
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
+
+    pub fn update(&mut self) {
+        for instance in &mut self.0 {
+            let rotation = instance.rotation;
+            let amount = Quaternion::from_angle_y(Deg(6.0));
+
+            instance.rotation = rotation * amount;
+        }
+    }
 }
 
 #[repr(C)]

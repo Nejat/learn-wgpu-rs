@@ -5,7 +5,7 @@ use wgpu::*;
 use wgpu::util::{BufferInitDescriptor, DeviceExt};
 use winit::dpi::PhysicalSize;
 
-use crate::models::{Instance as MeshInstance, InstanceRaw, Texture, Vertex};
+use crate::models::{Instance as MeshInstance, InstanceRaw, Instances, Texture, Vertex};
 
 const NUM_INSTANCES_PER_ROW: u32 = 10;
 #[allow(clippy::cast_precision_loss)]
@@ -64,8 +64,8 @@ pub fn diffuse_texture(
     (texture_bind_group, texture_bind_group_layout)
 }
 
-pub fn get_instances(device: &Device) -> (Vec<MeshInstance>, Buffer) {
-    let instances = (0..NUM_INSTANCES_PER_ROW).flat_map(|z| {
+pub fn get_instances(device: &Device) -> (Instances, Buffer) {
+    let instances: Instances = (0..NUM_INSTANCES_PER_ROW).flat_map(|z| {
         #[allow(clippy::cast_precision_loss)]
         (0..NUM_INSTANCES_PER_ROW).map(move |x| {
             let position = Vector3 { x: x as f32, y: 0.0, z: z as f32 } - INSTANCE_DISPLACEMENT;
@@ -83,18 +83,19 @@ pub fn get_instances(device: &Device) -> (Vec<MeshInstance>, Buffer) {
                 rotation,
             }
         })
-    }).collect::<Vec<_>>();
+    }).collect::<Vec<_>>().into();
 
-    let instance_data = instances.iter().map(Into::into).collect::<Vec<InstanceRaw>>();
-    let instance_buffer = device.create_buffer_init(
+    let instance_data = instances.get_raw();
+
+    let buffer = device.create_buffer_init(
         &BufferInitDescriptor {
             label: Some("instance buffer"),
             contents: cast_slice(&instance_data),
-            usage: BufferUsages::VERTEX,
+            usage: BufferUsages::VERTEX | BufferUsages::COPY_DST,
         }
     );
 
-    (instances, instance_buffer)
+    (instances, buffer)
 }
 
 pub fn render_pipeline(

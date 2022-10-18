@@ -2,7 +2,7 @@ pub use camera::Camera;
 pub use configuration::CameraConfiguration;
 pub use controller::CameraController;
 pub use geometry::Geometry;
-pub use instance::{Instance, InstanceRaw};
+pub use instance::{Instance, InstanceRaw, Instances};
 pub use texture::Texture;
 pub use uniform::CameraUniform;
 pub use vertex::Vertex;
