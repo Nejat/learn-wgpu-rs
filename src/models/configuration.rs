@@ -1,4 +1,5 @@
 use bytemuck::cast_slice;
+use cgmath::{Deg, Matrix4};
 use wgpu::{
     BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor,
     BindGroupLayoutEntry, BindingType, Buffer, BufferBindingType, BufferUsages, Device, ShaderStages};
@@ -16,7 +17,7 @@ impl CameraConfiguration {
     pub fn new(device: &Device, camera: &Camera, label: &str) -> (Self, BindGroupLayout) {
         let mut camera_uniform = CameraUniform::new();
 
-        camera_uniform.update_view_proj(camera);
+        camera_uniform.update_view_proj(camera, Matrix4::from_angle_x(Deg(0.0)));
 
         let camera_buffer = device.create_buffer_init(
             &BufferInitDescriptor {

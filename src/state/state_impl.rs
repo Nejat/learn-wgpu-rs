@@ -1,3 +1,4 @@
+use cgmath::{Deg, Matrix4};
 use winit::dpi::PhysicalSize;
 use winit::event::WindowEvent;
 
@@ -24,7 +25,18 @@ impl State {
 
     pub fn update(&mut self) {
         self.camera_controller.update_camera(&mut self.camera);
-        self.camera_configuration.uniform.update_view_proj(&self.camera);
-        self.queue.write_buffer(&self.camera_configuration.buffer, 0, bytemuck::cast_slice(&[self.camera_configuration.uniform]));
+
+        self.camera_configuration.uniform.update_view_proj(
+            &self.camera,
+            Matrix4::from_angle_x(self.geometry.rotation),
+        );
+
+        self.geometry.rotation += Deg(1.5);
+
+        self.queue.write_buffer(
+            &self.camera_configuration.buffer,
+            0,
+            bytemuck::cast_slice(&[self.camera_configuration.uniform]),
+        );
     }
 }

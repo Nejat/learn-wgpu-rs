@@ -19,7 +19,7 @@ impl CameraUniform {
         }
     }
 
-    pub fn update_view_proj(&mut self, camera: &Camera) {
-        self.view_proj = camera.build_view_projection_matrix().into();
+    pub fn update_view_proj(&mut self, camera: &Camera, rotation: Matrix4<f32>) {
+        self.view_proj = (camera.build_view_projection_matrix() * rotation).into();
     }
 }

@@ -1,4 +1,5 @@
 use bytemuck::cast_slice;
+use cgmath::Deg;
 use wgpu::{Buffer, BufferUsages, Device};
 use wgpu::util::{BufferInitDescriptor, DeviceExt};
 
@@ -8,6 +9,7 @@ pub struct Geometry {
     pub num_indices: u32,
     pub index_buffer: Buffer,
     pub vertex_buffer: Buffer,
+    pub rotation: Deg<f32>,
 }
 
 impl Geometry {
@@ -33,6 +35,7 @@ impl Geometry {
             num_indices: indices.len() as u32,
             index_buffer,
             vertex_buffer,
+            rotation: Deg(0.0),
         }
     }
 }
