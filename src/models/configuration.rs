@@ -1,7 +1,6 @@
 use bytemuck::cast_slice;
-use wgpu::{
-    BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor,
-    BindGroupLayoutEntry, BindingType, Buffer, BufferBindingType, BufferUsages, Device, ShaderStages};
+#[allow(clippy::wildcard_imports)]
+use wgpu::*;
 use wgpu::util::{BufferInitDescriptor, DeviceExt};
 
 use crate::models::{Camera, CameraUniform};

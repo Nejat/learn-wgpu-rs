@@ -22,7 +22,7 @@ use wasm_bindgen::prelude::*;
 use crate::init::{initialize_environment, initialize_logging};
 #[cfg(target_arch = "wasm32")]
 use crate::init::initialize_canvas;
-use crate::state::{render, State};
+use crate::state::State;
 
 mod init;
 mod meshes;
@@ -64,7 +64,7 @@ pub async fn run() {
             Event::RedrawRequested(window_id) if window_id == window.id() => {
                 state.update();
 
-                match render(&mut state) {
+                match state.render() {
                     Ok(_) => {}
                     // Reconfigure the surface if lost
                     Err(SurfaceError::Lost) => state.reconfigure_surface(),

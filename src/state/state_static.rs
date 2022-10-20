@@ -3,7 +3,7 @@ use wgpu::{Backends, Instance};
 use winit::window::Window;
 
 use crate::meshes::{INDICES, VERTICES};
-use crate::models::{Camera, CameraConfiguration, CameraController, Geometry};
+use crate::models::{Camera, CameraConfiguration, CameraController, Geometry, Texture};
 use crate::State;
 use crate::state::initialize::{diffuse_texture, get_instances, render_pipeline, request_adapter, request_device, surface_configuration};
 
@@ -50,10 +50,17 @@ impl State {
             "shader",
         );
 
+        let depth_texture = Texture::create_depth_texture(
+            &device,
+            &surface_configuration,
+            "depth texture",
+        );
+
         Self {
             camera,
             camera_configuration,
             camera_controller,
+            depth_texture,
             device,
             diffuse_bind_group,
             geometry,
