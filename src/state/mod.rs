@@ -3,7 +3,7 @@ use winit::dpi::PhysicalSize;
 
 pub use render::render;
 
-use crate::models::{Camera, CameraConfiguration, CameraController, Geometry, Instances};
+use crate::models::{Camera, CameraConfiguration, CameraController, Geometry, Instances, Texture};
 
 mod render;
 mod state_static;
@@ -14,6 +14,7 @@ pub struct State {
     camera: Camera,
     camera_configuration: CameraConfiguration,
     camera_controller: CameraController,
+    depth_texture: Texture,
     device: Device,
     diffuse_bind_group: BindGroup,
     geometry: Geometry,

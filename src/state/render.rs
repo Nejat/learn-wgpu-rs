@@ -1,5 +1,4 @@
 use std::iter::once;
-
 #[allow(clippy::wildcard_imports)]
 use wgpu::*;
 use wgpu::LoadOp::Clear;
@@ -25,7 +24,11 @@ pub fn render(state: &mut State) -> Result<(), SurfaceError> {
                     store: true,
                 },
             })],
-            depth_stencil_attachment: None,
+            depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
+                view: &state.depth_texture.view,
+                depth_ops: Some(Operations { load: Clear(1.0), store: true }),
+                stencil_ops: None,
+            }),
         });
 
         let geometry = &state.geometry;

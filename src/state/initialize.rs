@@ -100,7 +100,7 @@ pub fn get_instances(device: &Device) -> (Instances, Buffer) {
 
 pub fn render_pipeline(
     device: &Device,
-    config: &SurfaceConfiguration,
+    surface_configuration: &SurfaceConfiguration,
     bind_group_layout: &BindGroupLayout,
     camera_bind_group_layout: &BindGroupLayout,
     shader: ShaderModuleDescriptor,
@@ -133,7 +133,7 @@ pub fn render_pipeline(
             module: &shader,
             entry_point: "fs_main",
             targets: &[Some(ColorTargetState {
-                format: config.format,
+                format: surface_configuration.format,
                 blend: Some(BlendState::REPLACE),
                 write_mask: ColorWrites::ALL,
             })],
@@ -150,7 +150,13 @@ pub fn render_pipeline(
             // Requires Features::CONSERVATIVE_RASTERIZATION
             conservative: false,
         },
-        depth_stencil: None,
+        depth_stencil: Some(DepthStencilState {
+            format: Texture::DEPTH_FORMAT,
+            depth_write_enabled: true,
+            depth_compare: CompareFunction::Less,
+            stencil: StencilState::default(),
+            bias: DepthBiasState::default(),
+        }),
         multisample: MultisampleState {
             count: 1,
             mask: !0,
