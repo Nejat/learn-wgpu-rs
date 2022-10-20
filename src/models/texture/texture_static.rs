@@ -1,18 +1,13 @@
 use std::num::NonZeroU32;
 
-use anyhow::Result;
 use image::GenericImageView;
 use wgpu::{
     AddressMode, Device, Extent3d, FilterMode, ImageCopyTexture, ImageDataLayout, Origin3d,
-    Queue, Sampler, SamplerDescriptor, TextureAspect, TextureDescriptor, TextureDimension,
-    TextureFormat, TextureUsages, TextureView, TextureViewDescriptor,
+    Queue, SamplerDescriptor, TextureAspect, TextureDescriptor, TextureDimension, TextureFormat,
+    TextureUsages, TextureViewDescriptor,
 };
 
-pub struct Texture {
-    pub texture: wgpu::Texture,
-    pub view: TextureView,
-    pub sampler: Sampler,
-}
+use crate::models::Texture;
 
 impl Texture {
     pub fn from_bytes(
@@ -20,7 +15,7 @@ impl Texture {
         queue: &Queue,
         bytes: &[u8],
         label: &str,
-    ) -> Result<Self> {
+    ) -> anyhow::Result<Self> {
         let img = image::load_from_memory(bytes)?;
 
         Ok(Self::from_image(device, queue, &img, Some(label)))
