@@ -1,7 +1,7 @@
 use wgpu::{Buffer, Device, Queue, RenderPipeline, Surface, SurfaceConfiguration};
 use winit::dpi::PhysicalSize;
 
-use crate::models::{Camera, CameraConfiguration, CameraController, Instance, Model, Texture};
+use crate::models::{Camera, CameraConfiguration, CameraController, Instance, Light, Model, Texture};
 
 mod state_static;
 mod state_impl;
@@ -15,6 +15,8 @@ pub struct State {
     device: Device,
     instances: Vec<Instance>,
     instance_buffer: Buffer,
+    light: Light,
+    light_pipeline: RenderPipeline,
     obj_model: Model,
     queue: Queue,
     render_pipeline: RenderPipeline,

@@ -1,6 +1,6 @@
 use std::mem::size_of;
 
-use cgmath::{Matrix4, Quaternion, Vector3};
+use cgmath::{Matrix3, Matrix4, Quaternion, Vector3};
 use wgpu::{BufferAddress, VertexAttribute, VertexBufferLayout, VertexFormat, VertexStepMode};
 
 use crate::models::Vertex;
@@ -14,12 +14,17 @@ pub struct Instance {
 #[derive(Copy, Clone, Pod, Zeroable)]
 pub struct InstanceRaw {
     model: [[f32; 4]; 4],
+    normal: [[f32; 3]; 3],
 }
 
 impl From<&Instance> for InstanceRaw {
     fn from(src: &Instance) -> Self {
+        let model = Matrix4::from_translation(src.position) * Matrix4::from(src.rotation);
+        let normal = Matrix3::from(src.rotation);
+
         Self {
-            model: (Matrix4::from_translation(src.position) * Matrix4::from(src.rotation)).into(),
+            model: model.into(),
+            normal: normal.into(),
         }
     }
 }
@@ -58,7 +63,21 @@ impl Vertex for InstanceRaw {
                     shader_location: 8,
                     format: VertexFormat::Float32x4,
                 },
-            ],
+                VertexAttribute {
+                    offset: size_of::<[f32; 16]>() as BufferAddress,
+                    shader_location: 9,
+                    format: VertexFormat::Float32x3,
+                },
+                VertexAttribute {
+                    offset: size_of::<[f32; 19]>() as BufferAddress,
+                    shader_location: 10,
+                    format: VertexFormat::Float32x3,
+                },
+                VertexAttribute {
+                    offset: size_of::<[f32; 22]>() as BufferAddress,
+                    shader_location: 11,
+                    format: VertexFormat::Float32x3,
+                }, ],
         }
     }
 }

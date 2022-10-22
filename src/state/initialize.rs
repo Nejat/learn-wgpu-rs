@@ -5,10 +5,102 @@ use wgpu::*;
 use wgpu::util::{BufferInitDescriptor, DeviceExt};
 use winit::dpi::PhysicalSize;
 
-use crate::models::{Instance as MeshInstance, InstanceRaw, ModelVertex, Texture, Vertex};
+use crate::models::{Camera, Instance as MeshInstance, InstanceRaw, Light, LightUniform};
 
 const NUM_INSTANCES_PER_ROW: u32 = 10;
 const SPACE_BETWEEN: f32 = 3.0;
+
+#[allow(clippy::cast_precision_loss)]
+#[inline]
+pub fn aspect_ratio(width: u32, height: u32) -> f32 {
+    width as f32 / height as f32
+}
+
+pub fn configure_surface(
+    adapter: &Adapter,
+    device: &Device,
+    surface: &Surface,
+    size: PhysicalSize<u32>,
+) -> SurfaceConfiguration {
+    let configuration = SurfaceConfiguration {
+        usage: TextureUsages::RENDER_ATTACHMENT,
+        format: surface.get_supported_formats(adapter)[0],
+        width: size.width,
+        height: size.height,
+        present_mode: PresentMode::Fifo,
+        alpha_mode: CompositeAlphaMode::Auto,
+    };
+
+    surface.configure(device, &configuration);
+
+    configuration
+}
+
+pub fn create_render_pipeline(
+    device: &Device,
+    bind_group_layouts: &[&BindGroupLayout],
+    format: TextureFormat,
+    depth_format: Option<TextureFormat>,
+    vertex_layouts: &[VertexBufferLayout],
+    shader: ShaderModuleDescriptor,
+    label: &str,
+) -> RenderPipeline {
+    let shader = device.create_shader_module(shader);
+
+    let render_pipeline_layout =
+        device.create_pipeline_layout(&PipelineLayoutDescriptor {
+            label: Some(&format!("{label} - pipeline layout")),
+            bind_group_layouts,
+            push_constant_ranges: &[],
+        });
+
+    device.create_render_pipeline(&RenderPipelineDescriptor {
+        label: Some(&format!("{label} - render pipeline")),
+        layout: Some(&render_pipeline_layout),
+        vertex: VertexState {
+            module: &shader,
+            entry_point: "vs_main",
+            buffers: vertex_layouts,
+        },
+        fragment: Some(FragmentState {
+            module: &shader,
+            entry_point: "fs_main",
+            targets: &[Some(ColorTargetState {
+                format,
+                blend: Some(BlendState {
+                    alpha: BlendComponent::REPLACE,
+                    color: BlendComponent::REPLACE,
+                }),
+                write_mask: ColorWrites::ALL,
+            })],
+        }),
+        primitive: PrimitiveState {
+            topology: PrimitiveTopology::TriangleList,
+            strip_index_format: None,
+            front_face: FrontFace::Ccw,
+            cull_mode: Some(Face::Back),
+            // Setting this to anything other than Fill requires Features::NON_FILL_POLYGON_MODE
+            polygon_mode: PolygonMode::Fill,
+            // Requires Features::DEPTH_CLIP_CONTROL
+            unclipped_depth: false,
+            // Requires Features::CONSERVATIVE_RASTERIZATION
+            conservative: false,
+        },
+        depth_stencil: depth_format.map(|format| DepthStencilState {
+            format,
+            depth_write_enabled: true,
+            depth_compare: CompareFunction::Less,
+            stencil: StencilState::default(),
+            bias: DepthBiasState::default(),
+        }),
+        multisample: MultisampleState {
+            count: 1,
+            mask: !0,
+            alpha_to_coverage_enabled: false,
+        },
+        multiview: None,
+    })
+}
 
 pub fn diffuse_bind_group_layout(
     device: &Device,
@@ -39,6 +131,22 @@ pub fn diffuse_bind_group_layout(
     })
 }
 
+pub fn get_camera(aspect: f32) -> Camera {
+    Camera {
+        aspect,
+        // position the camera one unit up and 2 units back
+        // +z is out of the screen
+        eye: (0.0, 5.0, -10.0).into(),
+        fov_y: 45.0,
+        // have it look at the origin
+        target: (0.0, 0.0, 0.0).into(),
+        // which way is "up"
+        up: Vector3::unit_y(),
+        z_near: 0.1,
+        z_far: 100.0,
+    }
+}
+
 pub fn get_instances(device: &Device) -> (Vec<MeshInstance>, Buffer) {
     let instances = (0..NUM_INSTANCES_PER_ROW).flat_map(|z| {
         #[allow(clippy::cast_precision_loss)]
@@ -53,6 +161,8 @@ pub fn get_instances(device: &Device) -> (Vec<MeshInstance>, Buffer) {
             } else {
                 Quaternion::from_axis_angle(position.normalize(), Deg(45.0))
             };
+
+            // let rotation = Quaternion::from_axis_angle((0.0, 1.0, 0.0).into(), Deg(180.0));
 
             MeshInstance { position, rotation }
         })
@@ -70,72 +180,49 @@ pub fn get_instances(device: &Device) -> (Vec<MeshInstance>, Buffer) {
     (instances, instance_buffer)
 }
 
-pub fn render_pipeline(
-    device: &Device,
-    surface_configuration: &SurfaceConfiguration,
-    bind_group_layout: &BindGroupLayout,
-    camera_bind_group_layout: &BindGroupLayout,
-    shader: ShaderModuleDescriptor,
-    label: &str,
-) -> RenderPipeline {
-    let shader = device.create_shader_module(shader);
+pub fn initialize_light(device: &Device) -> (Light, BindGroupLayout) {
+    let light_uniform = LightUniform::new([2.0, 2.0, 2.0], [1.0, 1.0, 1.0]);
 
-    let render_pipeline_layout =
-        device.create_pipeline_layout(&PipelineLayoutDescriptor {
-            label: Some(&format!("{label} - render pipeline layout")),
-            bind_group_layouts: &[
-                bind_group_layout,
-                camera_bind_group_layout
-            ],
-            push_constant_ranges: &[],
+    // We'll want to update our lights position, so we use COPY_DST
+    let light_buffer = device.create_buffer_init(
+        &BufferInitDescriptor {
+            label: Some("Light VB"),
+            contents: cast_slice(&[light_uniform]),
+            usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
+        }
+    );
+
+    let light_bind_group_layout =
+        device.create_bind_group_layout(&BindGroupLayoutDescriptor {
+            entries: &[BindGroupLayoutEntry {
+                binding: 0,
+                visibility: ShaderStages::VERTEX | ShaderStages::FRAGMENT,
+                ty: BindingType::Buffer {
+                    ty: BufferBindingType::Uniform,
+                    has_dynamic_offset: false,
+                    min_binding_size: None,
+                },
+                count: None,
+            }],
+            label: None,
         });
 
-    device.create_render_pipeline(&RenderPipelineDescriptor {
-        label: Some(&format!("{label} - render pipeline")),
-        layout: Some(&render_pipeline_layout),
-        vertex: VertexState {
-            module: &shader,
-            entry_point: "vs_main",
-            buffers: &[
-                ModelVertex::desc(),
-                InstanceRaw::desc(),
-            ],
-        },
-        fragment: Some(FragmentState {
-            module: &shader,
-            entry_point: "fs_main",
-            targets: &[Some(ColorTargetState {
-                format: surface_configuration.format,
-                blend: Some(BlendState::REPLACE),
-                write_mask: ColorWrites::ALL,
-            })],
-        }),
-        primitive: PrimitiveState {
-            topology: PrimitiveTopology::TriangleList,
-            strip_index_format: None,
-            front_face: FrontFace::Ccw,
-            cull_mode: Some(Face::Back),
-            // Setting this to anything other than Fill requires Features::NON_FILL_POLYGON_MODE
-            polygon_mode: PolygonMode::Fill,
-            // Requires Features::DEPTH_CLIP_CONTROL
-            unclipped_depth: false,
-            // Requires Features::CONSERVATIVE_RASTERIZATION
-            conservative: false,
-        },
-        depth_stencil: Some(DepthStencilState {
-            format: Texture::DEPTH_FORMAT,
-            depth_write_enabled: true,
-            depth_compare: CompareFunction::Less,
-            stencil: StencilState::default(),
-            bias: DepthBiasState::default(),
-        }),
-        multisample: MultisampleState {
-            count: 1,
-            mask: !0,
-            alpha_to_coverage_enabled: false,
-        },
-        multiview: None,
-    })
+    let light_bind_group = device.create_bind_group(&BindGroupDescriptor {
+        layout: &light_bind_group_layout,
+        entries: &[BindGroupEntry {
+            binding: 0,
+            resource: light_buffer.as_entire_binding(),
+        }],
+        label: None,
+    });
+
+    let light = Light {
+        bind_group: light_bind_group,
+        buffer: light_buffer,
+        uniform: light_uniform,
+    };
+
+    (light, light_bind_group_layout)
 }
 
 pub async fn request_adapter(instance: &Instance, surface: &Surface) -> Adapter {
@@ -172,24 +259,4 @@ pub async fn request_device(adapter: &Adapter) -> (Device, Queue) {
         },
         None, // Trace path
     ).await.unwrap()
-}
-
-pub fn surface_configuration(
-    adapter: &Adapter,
-    device: &Device,
-    surface: &Surface,
-    size: PhysicalSize<u32>,
-) -> SurfaceConfiguration {
-    let config = SurfaceConfiguration {
-        usage: TextureUsages::RENDER_ATTACHMENT,
-        format: surface.get_supported_formats(adapter)[0],
-        width: size.width,
-        height: size.height,
-        present_mode: PresentMode::Fifo,
-        alpha_mode: CompositeAlphaMode::Auto,
-    };
-
-    surface.configure(device, &config);
-
-    config
 }

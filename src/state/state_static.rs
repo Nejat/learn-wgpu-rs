@@ -1,13 +1,12 @@
-use cgmath::Vector3;
 use wgpu::{Backends, Instance};
 use winit::window::Window;
 
-use crate::models::{Camera, CameraConfiguration, CameraController, Texture};
+use crate::models::{CameraConfiguration, CameraController, InstanceRaw, ModelVertex, Texture, Vertex};
 use crate::resources::load_model;
 use crate::State;
 use crate::state::initialize::{
-    diffuse_bind_group_layout, get_instances, render_pipeline, request_adapter,
-    request_device, surface_configuration,
+    aspect_ratio, configure_surface, create_render_pipeline, diffuse_bind_group_layout,
+    get_camera, get_instances, initialize_light, request_adapter, request_device,
 };
 
 impl State {
@@ -21,36 +20,37 @@ impl State {
         let surface = unsafe { instance.create_surface(window) };
         let adapter = request_adapter(&instance, &surface).await;
         let (device, queue) = request_device(&adapter).await;
-        let surface_configuration = surface_configuration(&adapter, &device, &surface, size);
-        let diffuse_bind_group_layout = diffuse_bind_group_layout(&device, "diffuse-texture");
+        let surface_configuration = configure_surface(&adapter, &device, &surface, size);
         let camera_controller = CameraController::new(0.2);
         let (instances, instance_buffer) = get_instances(&device);
-        #[allow(clippy::cast_precision_loss)]
-        let aspect = surface_configuration.width as f32 / surface_configuration.height as f32;
-
-        let camera = Camera {
-            aspect,
-            // position the camera one unit up and 2 units back
-            // +z is out of the screen
-            eye: (0.0, 5.0, -10.0).into(),
-            fov_y: 45.0,
-            // have it look at the origin
-            target: (0.0, 0.0, 0.0).into(),
-            // which way is "up"
-            up: Vector3::unit_y(),
-            z_near: 0.1,
-            z_far: 100.0,
-        };
-
+        let aspect = aspect_ratio(surface_configuration.width, surface_configuration.height);
+        let camera = get_camera(aspect);
         let (camera_configuration, camera_bind_group_layout) = CameraConfiguration::new(&device, &camera, "main");
+        let (light, light_bind_group_layout) = initialize_light(&device);
+        let diffuse_bind_group_layout = diffuse_bind_group_layout(&device, "diffuse-texture");
 
-        let render_pipeline = render_pipeline(
+        let render_pipeline = create_render_pipeline(
             &device,
-            &surface_configuration,
-            &diffuse_bind_group_layout,
-            &camera_bind_group_layout,
+            &[
+                &diffuse_bind_group_layout,
+                &camera_bind_group_layout,
+                &light_bind_group_layout,
+            ],
+            surface_configuration.format,
+            Some(Texture::DEPTH_FORMAT),
+            &[ModelVertex::desc(), InstanceRaw::desc()],
             include_wgsl!("../shaders/shader.wgsl"),
-            "shader",
+            "render",
+        );
+
+        let light_pipeline = create_render_pipeline(
+            &device,
+            &[&camera_bind_group_layout, &light_bind_group_layout],
+            surface_configuration.format,
+            Some(Texture::DEPTH_FORMAT),
+            &[ModelVertex::desc()],
+            include_wgsl!("../shaders/light.wgsl"),
+            "light",
         );
 
         let depth_texture = Texture::create_depth_texture(
@@ -74,6 +74,8 @@ impl State {
             device,
             instances,
             instance_buffer,
+            light,
+            light_pipeline,
             obj_model,
             queue,
             render_pipeline,

@@ -1,12 +1,13 @@
 use std::iter::once;
 
+use cgmath::{Deg, Quaternion, Rotation3, Vector3};
 #[allow(clippy::wildcard_imports)]
 use wgpu::*;
 use wgpu::LoadOp::Clear;
 use winit::dpi::PhysicalSize;
 use winit::event::WindowEvent;
 
-use crate::models::{DrawModel, Texture};
+use crate::models::{DrawLight, DrawModel, Texture};
 use crate::state::State;
 
 impl State {
@@ -45,6 +46,12 @@ impl State {
                 }),
             });
 
+            render_pass.set_pipeline(&self.light_pipeline); // NEW!
+            render_pass.draw_light_model(
+                &self.obj_model,
+                &self.camera_configuration.bind_group,
+                &self.light.bind_group,
+            );
             render_pass.set_pipeline(&self.render_pipeline);
             render_pass.set_vertex_buffer(1, self.instance_buffer.slice(..));
 
@@ -53,6 +60,7 @@ impl State {
                 &self.obj_model,
                 0..self.instances.len() as u32,
                 &self.camera_configuration.bind_group,
+                &self.light.bind_group,
             );
         }
 
@@ -83,5 +91,13 @@ impl State {
         self.camera_controller.update_camera(&mut self.camera);
         self.camera_configuration.uniform.update_view_proj(&self.camera);
         self.queue.write_buffer(&self.camera_configuration.buffer, 0, bytemuck::cast_slice(&[self.camera_configuration.uniform]));
+
+        // Update the light
+        let old_position: Vector3<_> = self.light.uniform.position.into();
+
+        self.light.uniform.position =
+            (Quaternion::from_axis_angle((0.0, 1.0, 0.0).into(), Deg(1.0)) * old_position).into();
+
+        self.queue.write_buffer(&self.light.buffer, 0, bytemuck::cast_slice(&[self.light.uniform]));
     }
 }
