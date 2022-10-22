@@ -126,8 +126,24 @@ pub fn diffuse_bind_group_layout(
                 ty: BindingType::Sampler(SamplerBindingType::Filtering),
                 count: None,
             },
+            BindGroupLayoutEntry {
+                binding: 2,
+                visibility: ShaderStages::FRAGMENT,
+                ty: BindingType::Texture {
+                    multisampled: false,
+                    sample_type: TextureSampleType::Float { filterable: true },
+                    view_dimension: TextureViewDimension::D2,
+                },
+                count: None,
+            },
+            BindGroupLayoutEntry {
+                binding: 3,
+                visibility: ShaderStages::FRAGMENT,
+                ty: BindingType::Sampler(SamplerBindingType::Filtering),
+                count: None,
+            },
         ],
-        label: Some(&format!("{label} - texture bind group layout")),
+        label: Some(&format!("{label} - bind group layout")),
     })
 }
 

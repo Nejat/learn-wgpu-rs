@@ -12,6 +12,7 @@ pub struct Model {
 pub struct Material {
     pub name: String,
     pub diffuse_texture: Texture,
+    pub normal_texture: Texture,
     pub bind_group: BindGroup,
 }
 
@@ -29,14 +30,18 @@ pub struct ModelVertex {
     pub position: [f32; 3],
     pub tex_coords: [f32; 2],
     pub normal: [f32; 3],
+    pub tangent: [f32; 3],
+    pub bi_tangent: [f32; 3],
 }
 
 impl Vertex for ModelVertex {
     fn desc<'a>() -> VertexBufferLayout<'a> {
-        const ATTRIBUTES: [VertexAttribute; 3] = vertex_attr_array![
+        const ATTRIBUTES: [VertexAttribute; 5] = vertex_attr_array![
             0 => Float32x3,
             1 => Float32x2,
-            2 => Float32x2,
+            2 => Float32x3,
+            3 => Float32x3,
+            4 => Float32x3,
         ];
 
         VertexBufferLayout {

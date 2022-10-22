@@ -40,7 +40,7 @@ impl State {
             Some(Texture::DEPTH_FORMAT),
             &[ModelVertex::desc(), InstanceRaw::desc()],
             include_wgsl!("../shaders/shader.wgsl"),
-            "render",
+            "shader",
         );
 
         let light_pipeline = create_render_pipeline(
