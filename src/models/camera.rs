@@ -1,4 +1,4 @@
-use cgmath::{Deg, Matrix4, perspective, Point3, Vector3};
+use cgmath::{Deg, Matrix4, perspective, Point3, SquareMatrix, Vector3};
 
 #[rustfmt::skip]
 const OPENGL_TO_WGPU_MATRIX: Matrix4<f32> = Matrix4::new(
@@ -24,5 +24,27 @@ impl Camera {
         let proj = perspective(Deg(self.fov_y), self.aspect, self.z_near, self.z_far);
 
         OPENGL_TO_WGPU_MATRIX * proj * view
+    }
+}
+
+// We need this for Rust to store our data correctly for the shaders
+#[repr(C)]
+// This is so we can store this in a buffer
+#[derive(Debug, Copy, Clone, Pod, Zeroable)]
+pub struct CameraUniform {
+    // We can't use cgmath with bytemuck directly so we'll have
+    // to convert the Matrix4 into a 4x4 f32 array
+    view_proj: [[f32; 4]; 4],
+}
+
+impl CameraUniform {
+    pub fn new() -> Self {
+        Self {
+            view_proj: Matrix4::identity().into(),
+        }
+    }
+
+    pub fn update_view_proj(&mut self, camera: &Camera) {
+        self.view_proj = camera.build_view_projection_matrix().into();
     }
 }

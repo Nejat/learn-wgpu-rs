@@ -25,13 +25,14 @@ impl State {
         let diffuse_bind_group_layout = diffuse_bind_group_layout(&device, "diffuse-texture");
         let camera_controller = CameraController::new(0.2);
         let (instances, instance_buffer) = get_instances(&device);
-
         #[allow(clippy::cast_precision_loss)]
-            let camera = Camera {
-            aspect: surface_configuration.width as f32 / surface_configuration.height as f32,
+        let aspect = surface_configuration.width as f32 / surface_configuration.height as f32;
+
+        let camera = Camera {
+            aspect,
             // position the camera one unit up and 2 units back
             // +z is out of the screen
-            eye: (0.0, 1.0, 2.0).into(),
+            eye: (0.0, 5.0, -10.0).into(),
             fov_y: 45.0,
             // have it look at the origin
             target: (0.0, 0.0, 0.0).into(),
