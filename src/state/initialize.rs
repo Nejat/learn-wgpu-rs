@@ -213,6 +213,7 @@ pub fn surface_configuration(
         width: size.width,
         height: size.height,
         present_mode: PresentMode::Fifo,
+        alpha_mode: CompositeAlphaMode::Auto,
     };
 
     surface.configure(device, &config);

@@ -1,8 +1,8 @@
 <component name="ProjectRunConfigurationManager">
   <configuration default="false" name="Build Web" type="WasmPackCommandRunConfiguration" factoryName="wasm-pack">
-    <option name="command" value="build --target web" />
+    <option name="command" value="build --target web --release" />
     <option name="workingDirectory" value="file://$PROJECT_DIR$" />
-    <option name="command" value="build --target web" />
+    <option name="command" value="build --target web --release" />
     <option name="workingDirectory" value="file://$PROJECT_DIR$" />
     <method v="2">
       <option name="WASM_PACK.BUILD_TASK_PROVIDER" enabled="true" />
