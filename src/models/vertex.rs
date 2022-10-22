@@ -1,7 +1,10 @@
-use std::mem::size_of;
+use wgpu::VertexBufferLayout;
 
-use wgpu::{BufferAddress, VertexAttribute, VertexBufferLayout, VertexStepMode};
+pub trait Vertex {
+    fn desc<'a>() -> VertexBufferLayout<'a>;
+}
 
+/*
 #[repr(C)]
 #[derive(Copy, Clone, Debug, Pod, Zeroable)]
 pub struct Vertex {
@@ -10,7 +13,7 @@ pub struct Vertex {
 }
 
 impl Vertex {
-    pub const fn desc<'a>() -> VertexBufferLayout<'a> {
+    fn desc<'a>() -> VertexBufferLayout<'a> {
         const ATTRIBUTES: [VertexAttribute; 2] = vertex_attr_array![0 => Float32x3, 1 => Float32x2];
 
         VertexBufferLayout {
@@ -34,3 +37,4 @@ impl Vertex {
         }
     }
 }
+*/

@@ -35,7 +35,7 @@ pub fn initialize_environment() -> (EventLoop<()>, Window) {
 }
 
 pub fn initialize_logging() {
-    cfg_if::cfg_if! {
+    cfg_if! {
         if #[cfg(target_arch = "wasm32")] {
             console_error_panic_hook::set_once();
             tracing_wasm::set_as_global_default();

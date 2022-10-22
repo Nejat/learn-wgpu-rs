@@ -2,10 +2,13 @@ use cgmath::Vector3;
 use wgpu::{Backends, Instance};
 use winit::window::Window;
 
-use crate::meshes::{INDICES, VERTICES};
-use crate::models::{Camera, CameraConfiguration, CameraController, Geometry, Texture};
+use crate::models::{Camera, CameraConfiguration, CameraController, Texture};
+use crate::resources::load_model;
 use crate::State;
-use crate::state::initialize::{diffuse_texture, get_instances, render_pipeline, request_adapter, request_device, surface_configuration};
+use crate::state::initialize::{
+    diffuse_bind_group_layout, get_instances, render_pipeline, request_adapter,
+    request_device, surface_configuration,
+};
 
 impl State {
     // Creating some of the wgpu types requires async code
@@ -19,8 +22,7 @@ impl State {
         let adapter = request_adapter(&instance, &surface).await;
         let (device, queue) = request_device(&adapter).await;
         let surface_configuration = surface_configuration(&adapter, &device, &surface, size);
-        let (diffuse_bind_group, diffuse_bind_group_layout) = diffuse_texture(&device, &queue, include_bytes!("../assets/happy-tree.png"), "happy-tree");
-        let geometry = Geometry::new(&device, VERTICES, INDICES);
+        let diffuse_bind_group_layout = diffuse_bind_group_layout(&device, "diffuse-texture");
         let camera_controller = CameraController::new(0.2);
         let (instances, instance_buffer) = get_instances(&device);
 
@@ -56,16 +58,22 @@ impl State {
             "depth texture",
         );
 
+        let obj_model = load_model(
+            "cube.obj",
+            &device,
+            &queue,
+            &diffuse_bind_group_layout,
+        ).await.unwrap();
+
         Self {
             camera,
             camera_configuration,
             camera_controller,
             depth_texture,
             device,
-            diffuse_bind_group,
-            geometry,
             instances,
             instance_buffer,
+            obj_model,
             queue,
             render_pipeline,
             size,

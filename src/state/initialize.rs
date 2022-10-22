@@ -5,83 +5,56 @@ use wgpu::*;
 use wgpu::util::{BufferInitDescriptor, DeviceExt};
 use winit::dpi::PhysicalSize;
 
-use crate::models::{Instance as MeshInstance, InstanceRaw, Texture, Vertex};
+use crate::models::{Instance as MeshInstance, InstanceRaw, ModelVertex, Texture, Vertex};
 
 const NUM_INSTANCES_PER_ROW: u32 = 10;
-#[allow(clippy::cast_precision_loss)]
-const INSTANCE_DISPLACEMENT: Vector3<f32> = Vector3::new(NUM_INSTANCES_PER_ROW as f32 * 0.5, 0.0, NUM_INSTANCES_PER_ROW as f32 * 0.5);
+const SPACE_BETWEEN: f32 = 3.0;
 
-pub fn diffuse_texture(
+pub fn diffuse_bind_group_layout(
     device: &Device,
-    queue: &Queue,
-    diffuse_bytes: &[u8],
     label: &str,
-) -> (BindGroup, BindGroupLayout) {
-    let diffuse_texture = Texture::from_bytes(device, queue, diffuse_bytes, label).unwrap();
-
-    let texture_bind_group_layout =
-        device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-            entries: &[
-                BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: ShaderStages::FRAGMENT,
-                    ty: BindingType::Texture {
-                        multisampled: false,
-                        view_dimension: TextureViewDimension::D2,
-                        sample_type: TextureSampleType::Float { filterable: true },
-                    },
-                    count: None,
+) -> BindGroupLayout {
+    device.create_bind_group_layout(&BindGroupLayoutDescriptor {
+        entries: &[
+            BindGroupLayoutEntry {
+                binding: 0,
+                visibility: ShaderStages::FRAGMENT,
+                ty: BindingType::Texture {
+                    multisampled: false,
+                    view_dimension: TextureViewDimension::D2,
+                    sample_type: TextureSampleType::Float { filterable: true },
                 },
-                BindGroupLayoutEntry {
-                    binding: 1,
-                    visibility: ShaderStages::FRAGMENT,
-                    // This should match the filterable field of the
-                    // corresponding Texture entry above.
-                    ty: BindingType::Sampler(SamplerBindingType::Filtering),
-                    count: None,
-                },
-            ],
-            label: Some(&format!("{label} - texture bind group layout")),
-        });
-
-    let texture_bind_group = device.create_bind_group(
-        &BindGroupDescriptor {
-            layout: &texture_bind_group_layout,
-            entries: &[
-                BindGroupEntry {
-                    binding: 0,
-                    resource: BindingResource::TextureView(&diffuse_texture.view),
-                },
-                BindGroupEntry {
-                    binding: 1,
-                    resource: BindingResource::Sampler(&diffuse_texture.sampler),
-                }
-            ],
-            label: Some(&format!("{label} - diffuse bind group")),
-        }
-    );
-
-    (texture_bind_group, texture_bind_group_layout)
+                count: None,
+            },
+            BindGroupLayoutEntry {
+                binding: 1,
+                visibility: ShaderStages::FRAGMENT,
+                // This should match the filterable field of the
+                // corresponding Texture entry above.
+                ty: BindingType::Sampler(SamplerBindingType::Filtering),
+                count: None,
+            },
+        ],
+        label: Some(&format!("{label} - texture bind group layout")),
+    })
 }
 
 pub fn get_instances(device: &Device) -> (Vec<MeshInstance>, Buffer) {
     let instances = (0..NUM_INSTANCES_PER_ROW).flat_map(|z| {
         #[allow(clippy::cast_precision_loss)]
         (0..NUM_INSTANCES_PER_ROW).map(move |x| {
-            let position = Vector3 { x: x as f32, y: 0.0, z: z as f32 } - INSTANCE_DISPLACEMENT;
+            let x = SPACE_BETWEEN * (x as f32 - NUM_INSTANCES_PER_ROW as f32 / 2.0);
+            let z = SPACE_BETWEEN * (z as f32 - NUM_INSTANCES_PER_ROW as f32 / 2.0);
+
+            let position = Vector3 { x, y: 0.0, z };
 
             let rotation = if position.is_zero() {
-                // this is needed so an object at (0, 0, 0) won't get scaled to zero
-                // as Quaternions can effect scale if they're not created correctly
                 Quaternion::from_axis_angle(Vector3::unit_z(), Deg(0.0))
             } else {
                 Quaternion::from_axis_angle(position.normalize(), Deg(45.0))
             };
 
-            MeshInstance {
-                position,
-                rotation,
-            }
+            MeshInstance { position, rotation }
         })
     }).collect::<Vec<_>>();
 
@@ -124,7 +97,7 @@ pub fn render_pipeline(
             module: &shader,
             entry_point: "vs_main",
             buffers: &[
-                Vertex::desc(),
+                ModelVertex::desc(),
                 InstanceRaw::desc(),
             ],
         },

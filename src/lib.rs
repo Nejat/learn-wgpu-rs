@@ -8,6 +8,8 @@
 #[macro_use]
 extern crate bytemuck;
 #[macro_use]
+extern crate cfg_if;
+#[macro_use]
 extern crate tracing;
 #[macro_use]
 extern crate wgpu;
@@ -25,8 +27,8 @@ use crate::init::initialize_canvas;
 use crate::state::State;
 
 mod init;
-mod meshes;
 mod models;
+mod resources;
 mod state;
 
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen(start))]
@@ -71,7 +73,7 @@ pub async fn run() {
                     // The system is out of memory, we should probably quit
                     Err(SurfaceError::OutOfMemory) => *control_flow = ControlFlow::Exit,
                     // All other errors (Outdated, Timeout) should be resolved by the next frame
-                    Err(e) => error!("{:?}", e),
+                    Err(err) => error!("{:?}", err),
                 }
             }
             Event::MainEventsCleared =>

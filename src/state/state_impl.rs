@@ -6,7 +6,7 @@ use wgpu::LoadOp::Clear;
 use winit::dpi::PhysicalSize;
 use winit::event::WindowEvent;
 
-use crate::models::Texture;
+use crate::models::{DrawModel, Texture};
 use crate::state::State;
 
 impl State {
@@ -45,16 +45,15 @@ impl State {
                 }),
             });
 
-            let geometry = &self.geometry;
-
             render_pass.set_pipeline(&self.render_pipeline);
-            render_pass.set_bind_group(0, &self.diffuse_bind_group, &[]);
-            render_pass.set_bind_group(1, &self.camera_configuration.bind_group, &[]);
-            render_pass.set_vertex_buffer(0, geometry.vertex_buffer.slice(..));
             render_pass.set_vertex_buffer(1, self.instance_buffer.slice(..));
-            render_pass.set_index_buffer(geometry.index_buffer.slice(..), IndexFormat::Uint16);
+
             #[allow(clippy::cast_possible_truncation)]
-            render_pass.draw_indexed(0..geometry.num_indices, 0, 0..self.instances.len() as _);
+            render_pass.draw_model_instanced(
+                &self.obj_model,
+                0..self.instances.len() as u32,
+                &self.camera_configuration.bind_group,
+            );
         }
 
         // submit will accept anything that implements IntoIter

@@ -3,6 +3,8 @@ use std::mem::size_of;
 use cgmath::{Matrix4, Quaternion, Vector3};
 use wgpu::{BufferAddress, VertexAttribute, VertexBufferLayout, VertexFormat, VertexStepMode};
 
+use crate::models::Vertex;
+
 pub struct Instance {
     pub position: Vector3<f32>,
     pub rotation: Quaternion<f32>,
@@ -22,8 +24,8 @@ impl From<&Instance> for InstanceRaw {
     }
 }
 
-impl InstanceRaw {
-    pub const fn desc<'a>() -> VertexBufferLayout<'a> {
+impl Vertex for InstanceRaw {
+    fn desc<'a>() -> VertexBufferLayout<'a> {
         VertexBufferLayout {
             array_stride: size_of::<Self>() as BufferAddress,
             // We need to switch from using a step mode of Vertex to Instance
