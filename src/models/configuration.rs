@@ -3,29 +3,35 @@ use bytemuck::cast_slice;
 use wgpu::*;
 use wgpu::util::{BufferInitDescriptor, DeviceExt};
 
-use crate::models::{Camera, CameraUniform};
+use crate::models::{Camera, CameraProjection};
+use crate::models::CameraUniform;
 
 pub struct CameraConfiguration {
-    pub uniform: CameraUniform,
-    pub buffer: Buffer,
     pub bind_group: BindGroup,
+    pub buffer: Buffer,
+    pub uniform: CameraUniform,
 }
 
 impl CameraConfiguration {
-    pub fn new(device: &Device, camera: &Camera, label: &str) -> (Self, BindGroupLayout) {
-        let mut camera_uniform = CameraUniform::new();
+    pub fn new(
+        device: &Device,
+        camera: &Camera,
+        projection: &CameraProjection,
+        label: &str,
+    ) -> (Self, BindGroupLayout) {
+        let mut uniform = CameraUniform::new();
 
-        camera_uniform.update_view_proj(camera);
+        uniform.update_view_proj(camera, projection);
 
-        let camera_buffer = device.create_buffer_init(
+        let buffer = device.create_buffer_init(
             &BufferInitDescriptor {
                 label: Some(&format!("{label} - camera buffer")),
-                contents: cast_slice(&[camera_uniform]),
+                contents: cast_slice(&[uniform]),
                 usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
             }
         );
 
-        let camera_bind_group_layout = device.create_bind_group_layout(&BindGroupLayoutDescriptor {
+        let bind_group_layout = device.create_bind_group_layout(&BindGroupLayoutDescriptor {
             entries: &[
                 BindGroupLayoutEntry {
                     binding: 0,
@@ -41,23 +47,19 @@ impl CameraConfiguration {
             label: Some(&format!("{label} - camera bind group layout")),
         });
 
-        let camera_bind_group = device.create_bind_group(&BindGroupDescriptor {
-            layout: &camera_bind_group_layout,
+        let bind_group = device.create_bind_group(&BindGroupDescriptor {
+            layout: &bind_group_layout,
             entries: &[
                 BindGroupEntry {
                     binding: 0,
-                    resource: camera_buffer.as_entire_binding(),
+                    resource: buffer.as_entire_binding(),
                 }
             ],
             label: Some(&format!("{label} - camera bind group")),
         });
 
-        let configuration = Self {
-            uniform: camera_uniform,
-            buffer: camera_buffer,
-            bind_group: camera_bind_group,
-        };
+        let configuration = Self { bind_group, buffer, uniform };
 
-        (configuration, camera_bind_group_layout)
+        (configuration, bind_group_layout)
     }
 }

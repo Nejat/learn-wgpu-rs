@@ -1,6 +1,5 @@
-pub use camera::{Camera, CameraUniform};
+pub use camera::{Camera, CameraController, CameraProjection, CameraUniform};
 pub use configuration::CameraConfiguration;
-pub use controller::CameraController;
 pub use draw::{DrawLight, DrawModel};
 pub use instance::{Instance, InstanceRaw};
 pub use light::{Light, LightUniform};
@@ -10,7 +9,6 @@ pub use vertex::Vertex;
 
 mod camera;
 mod configuration;
-mod controller;
 mod draw;
 mod instance;
 mod light;

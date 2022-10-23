@@ -16,6 +16,7 @@ anyhow = "1"
 bytemuck = { version = "1", features = ["derive"] }
 cfg-if = "1"
 cgmath = "0.18"
+instant = "0.1"
 pollster = "0.2"
 tobj = { version = "3", features = ["async"] }
 tracing = "0.1"

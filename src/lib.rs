@@ -14,8 +14,11 @@ extern crate tracing;
 #[macro_use]
 extern crate wgpu;
 
+use instant::Instant;
 use wgpu::SurfaceError;
-use winit::event::{ElementState, Event, KeyboardInput, VirtualKeyCode, WindowEvent};
+use winit::event::{DeviceEvent, Event, WindowEvent};
+#[cfg(not(target_arch = "wasm32"))]
+use winit::event::{ElementState, KeyboardInput, VirtualKeyCode};
 use winit::event_loop::ControlFlow;
 
 #[cfg(target_arch = "wasm32")]
@@ -41,30 +44,48 @@ pub async fn run() {
     initialize_canvas(&window);
 
     let mut state = State::new(&window).await;
+    let mut last_render_time = Instant::now();
 
     event_loop.run(move |event, _, control_flow| {
         match event {
+            Event::DeviceEvent {
+                event: DeviceEvent::MouseMotion { delta, },
+                .. // We're not using device_id currently
+            } => if state.mouse_pressed() {
+                state.process_mouse(delta);
+            }
             Event::WindowEvent {
                 ref event,
                 window_id,
-            } if window_id == window.id() && !state.input(event) => match event {
-                WindowEvent::CloseRequested |
-                WindowEvent::KeyboardInput {
-                    input: KeyboardInput {
-                        state: ElementState::Pressed,
-                        virtual_keycode: Some(VirtualKeyCode::Escape),
+            } if window_id == window.id() && !state.input(event) => {
+                match event {
+                    #[cfg(not(target_arch = "wasm32"))]
+                    WindowEvent::CloseRequested
+                    | WindowEvent::KeyboardInput {
+                        input:
+                        KeyboardInput {
+                            state: ElementState::Pressed,
+                            virtual_keycode: Some(VirtualKeyCode::Escape),
+                            ..
+                        },
                         ..
-                    },
-                    ..
-                } => *control_flow = ControlFlow::Exit,
-                WindowEvent::Resized(physical_size) =>
-                    state.resize(*physical_size),
-                WindowEvent::ScaleFactorChanged { new_inner_size, .. } =>
-                    state.resize(**new_inner_size),
-                _ => {}
-            },
+                    } => *control_flow = ControlFlow::Exit,
+                    WindowEvent::Resized(physical_size) => {
+                        state.resize(*physical_size);
+                    }
+                    WindowEvent::ScaleFactorChanged { new_inner_size, .. } => {
+                        state.resize(**new_inner_size);
+                    }
+                    _ => {}
+                }
+            }
             Event::RedrawRequested(window_id) if window_id == window.id() => {
-                state.update();
+                let now = Instant::now();
+                let dt = now - last_render_time;
+
+                last_render_time = now;
+
+                state.update(dt);
 
                 match state.render() {
                     Ok(_) => {}

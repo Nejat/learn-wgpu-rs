@@ -5,16 +5,10 @@ use wgpu::*;
 use wgpu::util::{BufferInitDescriptor, DeviceExt};
 use winit::dpi::PhysicalSize;
 
-use crate::models::{Camera, Instance as MeshInstance, InstanceRaw, Light, LightUniform};
+use crate::models::{Instance as MeshInstance, InstanceRaw, Light, LightUniform};
 
 const NUM_INSTANCES_PER_ROW: u32 = 10;
 const SPACE_BETWEEN: f32 = 3.0;
-
-#[allow(clippy::cast_precision_loss)]
-#[inline]
-pub fn aspect_ratio(width: u32, height: u32) -> f32 {
-    width as f32 / height as f32
-}
 
 pub fn configure_surface(
     adapter: &Adapter,
@@ -145,22 +139,6 @@ pub fn diffuse_bind_group_layout(
         ],
         label: Some(&format!("{label} - bind group layout")),
     })
-}
-
-pub fn get_camera(aspect: f32) -> Camera {
-    Camera {
-        aspect,
-        // position the camera one unit up and 2 units back
-        // +z is out of the screen
-        eye: (0.0, 5.0, -10.0).into(),
-        fov_y: 45.0,
-        // have it look at the origin
-        target: (0.0, 0.0, 0.0).into(),
-        // which way is "up"
-        up: Vector3::unit_y(),
-        z_near: 0.1,
-        z_far: 100.0,
-    }
 }
 
 pub fn get_instances(device: &Device) -> (Vec<MeshInstance>, Buffer) {

@@ -1,12 +1,13 @@
+use cgmath::Deg;
 use wgpu::{Backends, Instance};
 use winit::window::Window;
 
-use crate::models::{CameraConfiguration, CameraController, InstanceRaw, ModelVertex, Texture, Vertex};
+use crate::models::{Camera, CameraConfiguration, CameraController, CameraProjection, InstanceRaw, ModelVertex, Texture, Vertex};
 use crate::resources::load_model;
 use crate::State;
 use crate::state::initialize::{
-    aspect_ratio, configure_surface, create_render_pipeline, diffuse_bind_group_layout,
-    get_camera, get_instances, initialize_light, request_adapter, request_device,
+    configure_surface, create_render_pipeline, diffuse_bind_group_layout,
+    get_instances, initialize_light, request_adapter, request_device,
 };
 
 impl State {
@@ -21,11 +22,11 @@ impl State {
         let adapter = request_adapter(&instance, &surface).await;
         let (device, queue) = request_device(&adapter).await;
         let surface_configuration = configure_surface(&adapter, &device, &surface, size);
-        let camera_controller = CameraController::new(0.2);
         let (instances, instance_buffer) = get_instances(&device);
-        let aspect = aspect_ratio(surface_configuration.width, surface_configuration.height);
-        let camera = get_camera(aspect);
-        let (camera_configuration, camera_bind_group_layout) = CameraConfiguration::new(&device, &camera, "main");
+        let camera = Camera::new((0.0, 5.0, 10.0), Deg(-90.0), Deg(-20.0));
+        let camera_controller = CameraController::new(4.0, 0.4);
+        let camera_projection = CameraProjection::new(surface_configuration.width, surface_configuration.height, Deg(45.0), 0.1, 100.0);
+        let (camera_configuration, camera_bind_group_layout) = CameraConfiguration::new(&device, &camera, &camera_projection, "main");
         let (light, light_bind_group_layout) = initialize_light(&device);
         let diffuse_bind_group_layout = diffuse_bind_group_layout(&device, "diffuse-texture");
 
@@ -70,16 +71,17 @@ impl State {
             camera,
             camera_configuration,
             camera_controller,
+            camera_projection,
             depth_texture,
             device,
             instances,
             instance_buffer,
             light,
             light_pipeline,
+            mouse_pressed: false,
             obj_model,
             queue,
             render_pipeline,
-            size,
             surface,
             surface_configuration,
         }
